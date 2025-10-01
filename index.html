@@ -8,21 +8,20 @@
   .control { margin:15px; }
   input[type=range] { width:300px; }
   button { margin:5px; padding:10px 20px; font-size:16px; cursor:pointer; }
-  #progress { width:300px; }
+  #loader { display:none; margin:10px; }
+  #progressContainer { width:300px; margin:10px auto; }
 </style>
 </head>
 <body>
 <h1>🎶 LoFi Slowed + Reverb + Bass Tool</h1>
 
-<input type="file" id="fileInput" accept="audio/*"><br><br>
+<input type="file" id="fileInput" accept="audio/*"><br>
+<div id="loader">Uploading & Loading...</div>
 
 <button id="playBtn">▶ Play</button>
 <button id="stopBtn">⏹ Stop</button>
-<button id="startOverBtn">🔄 Start Over</button>
-<button id="downloadBtn">💾 Render & Download</button><br><br>
-
-<input type="range" id="progress" min="0" max="100" value="0"><br>
-<span id="currentTime">0:00</span> / <span id="duration">0:00</span>
+<button id="restartBtn">🔄 Restart</button>
+<button id="downloadBtn">💾 Render & Download</button>
 
 <div class="control">
   <label>Speed: <span id="speedVal">1.0</span>x</label><br>
@@ -35,61 +34,71 @@
 </div>
 
 <div class="control">
-  <label>Bass Boost: <span id="bassVal">0.0</span></label><br>
+  <label>Bass: <span id="bassVal">0</span></label><br>
   <input type="range" id="bassControl" min="0" max="20" value="0" step="1">
 </div>
 
 <div class="control">
-  <label>Volume: <span id="volumeVal">100</span>%</label><br>
+  <label>Volume: <span id="volumeVal">100%</span></label><br>
   <input type="range" id="volumeControl" min="0" max="100" value="100" step="1">
 </div>
 
+<div id="progressContainer">
+  <input type="range" id="progressSlider" min="0" max="100" value="0" step="0.01" style="width:100%;">
+  <div><span id="currentTime">0:00</span> / <span id="duration">0:00</span></div>
+</div>
+
+<canvas id="visualizer" width="600" height="100" style="background:#222; margin-top:20px;"></canvas>
+
 <script>
 let audioCtx, audioBuffer, source;
-let convolver, bassFilter, wetGain, dryGain, masterGain, gainNode;
-let animationId;
-let pausedAt = 0, startTime = 0;
+let convolver, bassFilter, wetGain, dryGain, masterGain, volumeGain;
+let analyser, dataArray, animationId;
+let startTime = 0, pausedAt = 0;
 
-// Upload audio
+// Load audio
 document.getElementById("fileInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  document.body.style.cursor = "wait";
+  document.getElementById("loader").style.display = "block";
+
+  if (source) stopAudio();
+  pausedAt = 0;
+
   const arrayBuffer = await file.arrayBuffer();
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  pausedAt = 0;
-  stopAudio();
-  document.getElementById("progress").value = 0;
-  document.getElementById("currentTime").textContent = "0:00";
-  document.getElementById("duration").textContent = Math.floor(audioBuffer.duration/60)+":"+String(Math.floor(audioBuffer.duration%60)).padStart(2,'0');
-  document.body.style.cursor = "default";
+
+  document.getElementById("loader").style.display = "none";
+  document.getElementById("duration").textContent = formatTime(audioBuffer.duration);
+  document.getElementById("progressSlider").value = 0;
   alert("✅ Audio loaded! Now press Play.");
 });
 
-// Reverb IR
+// Format seconds to mm:ss
+function formatTime(seconds) {
+  let min = Math.floor(seconds/60);
+  let sec = Math.floor(seconds%60);
+  if(sec<10) sec="0"+sec;
+  return `${min}:${sec}`;
+}
+
+// Reverb impulse
 function createReverbIR(ctx) {
   let length = ctx.sampleRate * 3;
   let impulse = ctx.createBuffer(2, length, ctx.sampleRate);
-  for (let c = 0; c < 2; c++) {
+  for (let c=0;c<2;c++){
     let channel = impulse.getChannelData(c);
-    for (let i = 0; i < length; i++) channel[i] = (Math.random()*2-1)*(1-i/length);
+    for (let i=0;i<length;i++){
+      channel[i] = (Math.random()*2-1)*(1-i/length);
+    }
   }
   return impulse;
 }
 
-// Stop audio
-function stopAudio() {
-  if (source) {
-    try { source.stop(); } catch(e){}
-    source.disconnect();
-    source = null;
-  }
-  if (animationId) cancelAnimationFrame(animationId);
-}
-
-// Create audio graph
-function createAudioGraph(start=0) {
+// Create Audio Graph
+function createAudioGraph() {
+  stopAudio();
   source = audioCtx.createBufferSource();
   source.buffer = audioBuffer;
 
@@ -104,134 +113,106 @@ function createAudioGraph(start=0) {
   wetGain = audioCtx.createGain();
   dryGain = audioCtx.createGain();
   masterGain = audioCtx.createGain();
+  volumeGain = audioCtx.createGain();
 
-  gainNode = audioCtx.createGain();
-  gainNode.gain.value = parseFloat(document.getElementById("volumeControl").value)/100;
-
+  // Connect graph
   source.connect(bassFilter);
   bassFilter.connect(dryGain);
   bassFilter.connect(convolver);
   convolver.connect(wetGain);
   dryGain.connect(masterGain);
   wetGain.connect(masterGain);
-  masterGain.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
+  masterGain.connect(volumeGain);
+  volumeGain.connect(audioCtx.destination);
 
-  dryGain.gain.value = 1;
-  wetGain.gain.value = parseFloat(document.getElementById("reverbControl").value);
+  // Analyser for visualization
+  analyser = audioCtx.createAnalyser();
+  masterGain.connect(analyser);
+  analyser.fftSize = 256;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  // Set initial values
   source.playbackRate.value = parseFloat(document.getElementById("speedControl").value);
-
-  source.start(0, start);
-  startTime = audioCtx.currentTime - start;
-
-  updateProgress();
+  wetGain.gain.value = parseFloat(document.getElementById("reverbControl").value);
+  volumeGain.gain.value = parseFloat(document.getElementById("volumeControl").value)/100;
+  source.onended = () => cancelAnimationFrame(animationId);
 }
 
-// Update progress bar
-function updateProgress() {
-  if(!source) return;
-  let current = audioCtx.currentTime - startTime;
-  document.getElementById("progress").value = (current/audioBuffer.duration)*100;
-  document.getElementById("currentTime").textContent = Math.floor(current/60)+":"+String(Math.floor(current%60)).padStart(2,'0');
-  animationId = requestAnimationFrame(updateProgress);
+// Stop audio
+function stopAudio() {
+  if(source){
+    try{ source.stop(0); } catch(e){}
+    source.disconnect();
+  }
+  cancelAnimationFrame(animationId);
 }
 
-// Event listeners
-document.getElementById("playBtn").addEventListener("click", () => {
-  if (!audioBuffer) return alert("Upload audio first!");
-  if (audioCtx.state === "suspended") audioCtx.resume();
-  stopAudio();
-  createAudioGraph(pausedAt);
+// Play button
+document.getElementById("playBtn").addEventListener("click", async () => {
+  if(!audioBuffer) return alert("Upload audio first!");
+  if(audioCtx.state === "suspended") await audioCtx.resume();
+  createAudioGraph();
+  startTime = audioCtx.currentTime - pausedAt;
+  source.start(0, pausedAt);
+  visualize();
 });
 
-document.getElementById("stopBtn").addEventListener("click", () => {
+// Stop button
+document.getElementById("stopBtn").addEventListener("click", ()=>{
+  if(!source) return;
   pausedAt = audioCtx.currentTime - startTime;
   stopAudio();
 });
 
-document.getElementById("startOverBtn").addEventListener("click", () => {
+// Restart button
+document.getElementById("restartBtn").addEventListener("click", ()=>{
   pausedAt = 0;
   stopAudio();
-  createAudioGraph(0);
+  createAudioGraph();
+  startTime = audioCtx.currentTime;
+  source.start(0);
+  visualize();
 });
 
-document.getElementById("progress").addEventListener("input", e => {
-  if(!audioBuffer) return;
-  pausedAt = (parseFloat(e.target.value)/100)*audioBuffer.duration;
-  stopAudio();
-  createAudioGraph(pausedAt);
-});
-
+// Sliders
 document.getElementById("speedControl").addEventListener("input", e => {
   if(source) source.playbackRate.value = parseFloat(e.target.value);
   document.getElementById("speedVal").textContent = e.target.value;
 });
 
-document.getElementById("reverbControl").addEventListener("input", e => {
+document.getElementById("reverbControl").addEventListener("input", e=>{
   if(wetGain) wetGain.gain.value = parseFloat(e.target.value);
   document.getElementById("reverbVal").textContent = e.target.value;
 });
 
-document.getElementById("bassControl").addEventListener("input", e => {
+document.getElementById("bassControl").addEventListener("input", e=>{
   if(bassFilter) bassFilter.gain.value = parseFloat(e.target.value);
   document.getElementById("bassVal").textContent = e.target.value;
 });
 
-document.getElementById("volumeControl").addEventListener("input", e => {
-  if(gainNode) gainNode.gain.value = parseFloat(e.target.value)/100;
-  document.getElementById("volumeVal").textContent = e.target.value;
+document.getElementById("volumeControl").addEventListener("input", e=>{
+  if(volumeGain) volumeGain.gain.value = parseFloat(e.target.value)/100;
+  document.getElementById("volumeVal").textContent = e.target.value + "%";
 });
 
-// Render & Download
-document.getElementById("downloadBtn").addEventListener("click", async () => {
-  if (!audioBuffer) return alert("Upload audio first!");
-  const offlineCtx = new OfflineAudioContext(2, audioBuffer.length, audioBuffer.sampleRate);
-
-  const src = offlineCtx.createBufferSource();
-  src.buffer = audioBuffer;
-
-  const bass = offlineCtx.createBiquadFilter();
-  bass.type = "lowshelf";
-  bass.frequency.value = 200;
-  bass.gain.value = parseFloat(document.getElementById("bassControl").value);
-
-  const conv = offlineCtx.createConvolver();
-  conv.buffer = offlineCtx.createBuffer(2, offlineCtx.sampleRate*3, offlineCtx.sampleRate);
-  for (let c=0;c<2;c++) {
-    const channel = conv.buffer.getChannelData(c);
-    for(let i=0;i<channel.length;i++) channel[i] = (Math.random()*2-1)*(1-i/channel.length);
+// Progress slider
+const progressSlider = document.getElementById("progressSlider");
+progressSlider.addEventListener("input", e=>{
+  if(!audioBuffer) return;
+  let seekTime = (audioBuffer.duration * e.target.value)/100;
+  pausedAt = seekTime;
+  if(source){
+    stopAudio();
+    createAudioGraph();
+    startTime = audioCtx.currentTime - pausedAt;
+    source.start(0, pausedAt);
+    visualize();
   }
+});
 
-  const wet = offlineCtx.createGain();
-  const dry = offlineCtx.createGain();
-  const master = offlineCtx.createGain();
-
-  src.connect(bass);
-  bass.connect(dry);
-  bass.connect(conv);
-  conv.connect(wet);
-  dry.connect(master);
-  wet.connect(master);
-  master.connect(offlineCtx.destination);
-
-  src.playbackRate.value = parseFloat(document.getElementById("speedControl").value);
-  dry.gain.value = 1;
-  wet.gain.value = parseFloat(document.getElementById("reverbControl").value);
-
-  src.start(0);
-  const renderedBuffer = await offlineCtx.startRendering();
-
-  function bufferToWave(abuffer, len) {
-    const numOfChan = abuffer.numberOfChannels,
-      length = len * numOfChan * 2 + 44,
-      buffer = new ArrayBuffer(length),
-      view = new DataView(buffer),
-      channels = [],
-      sampleRate = abuffer.sampleRate;
-
-    let offset = 0, pos = 0;
-
-    function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-    function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
-
-    setUint32(0x46464952); setUint32(length-8
+// Visualization
+const canvas = document.getElementById("visualizer");
+const ctx = canvas.getContext("2d");
+function visualize(){
+  animationId = requestAnimationFrame(visualize);
+  analyser.getByteFrequencyData(dataArray);
