@@ -3,101 +3,102 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Live Slowed + Reverb Tool</title>
+<title>Slowed + Reverb — Live Tool (DJ Screw Presets)</title>
+<meta name="description" content="Live Slowed + Reverb maker — DJ Screw, LoFi, Hall presets. Upload, play, change effects live. No server upload.">
 <style>
-  :root{--bg:#0b1220;--card:#0f1724;--accent:#0bb0ff;--muted:#9aa7b2}
-  body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#e6eef6}
-  .wrap{max-width:980px;margin:20px auto;padding:16px}
-  .card{background:var(--card);padding:16px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.45)}
-  h1{margin:0 0 6px;color:var(--accent)}
+  :root{--bg:#08121a;--card:#0f1720;--accent:#08c0ff;--muted:#9db0bf}
+  body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#e6f4fb}
+  .wrap{max-width:980px;margin:18px auto;padding:14px}
+  .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+  h1{margin:0 0 6px;color:var(--accent);font-size:20px}
   .muted{color:var(--muted);font-size:13px}
   .row{display:flex;gap:12px;align-items:center;margin:10px 0;flex-wrap:wrap}
   label{min-width:120px;color:#cfe8ff}
   input[type="range"]{width:260px}
-  select,input[type="file"],button{padding:8px;border-radius:8px;border:1px solid #223;background:#08121a;color:#dff}
-  button.primary{background:var(--accent);color:#032}
+  select,input[type="file"],button{padding:8px;border-radius:8px;border:1px solid #20313a;background:#071018;color:#eaf7ff}
+  button.primary{background:var(--accent);color:#012;border:0}
+  button.ghost{background:transparent;border:1px solid #21323a;color:#cfe8ff}
   audio{width:100%;margin-top:12px;border-radius:8px;background:#000}
-  .small{font-size:13px;color:var(--muted)}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(max-width:760px){ .grid{grid-template-columns:1fr} input[type="range"]{width:180px} label{min-width:90px} }
+  @media(max-width:760px){.grid{grid-template-columns:1fr} input[type="range"]{width:180px} label{min-width:90px}}
+  .preset-row{display:flex;gap:8px;flex-wrap:wrap}
+  .preset-btn{background:#0b2b35;color:#cfe;padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
+  .note{font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>Live Slowed + Reverb Tool</h1>
-    <div class="muted">Upload → Play → change effects live. (Preview only — no server upload.)</div>
+    <h1>Slowed + Reverb — Live Preview Tool</h1>
+    <div class="muted">Upload → Play → change effects live. (Preview only, no server upload). Use headphones for best result.</div>
 
     <div class="row">
       <label for="file">Select audio</label>
       <input id="file" type="file" accept="audio/*">
-      <div style="margin-left:auto" class="small">Max recommended: 10 MB for mobile.</div>
+      <div style="margin-left:auto" class="note">Recommended ≤ 15MB for smooth mobile play</div>
     </div>
 
     <div class="row">
-      <label for="preset">Preset</label>
-      <select id="preset">
-        <option value="custom">Custom</option>
-        <option value="lofi">LoFi (slow + warm)</option>
-        <option value="hall">Hall (big reverb)</option>
-        <option value="club">Club (delay + bass)</option>
-        <option value="clean">Clean (minimal)</option>
-      </select>
-      <button id="applyPreset" class="primary">Apply</button>
+      <label>Quick presets</label>
+      <div class="preset-row" style="margin-left:0">
+        <button class="preset-btn" data-preset="dj">DJ Screw</button>
+        <button class="preset-btn" data-preset="lofi">LoFi</button>
+        <button class="preset-btn" data-preset="hall">Hall</button>
+        <button class="preset-btn" data-preset="club">Club</button>
+        <button class="preset-btn" data-preset="vintage">Vintage</button>
+        <button id="applyCustom" class="ghost">Apply Custom</button>
+      </div>
     </div>
 
     <div class="grid">
       <div>
         <div class="row"><label>Speed</label><input id="speed" type="range" min="0.5" max="1.2" step="0.01" value="0.85"><div id="speedText">0.85×</div></div>
-        <div class="row"><label>Pitch (playback)</label><input id="pitch" type="range" min="0.5" max="1.5" step="0.01" value="1"><div id="pitchText">1.00</div></div>
-        <div class="row"><label>Reverb</label><input id="reverb" type="range" min="0" max="1" step="0.01" value="0.5"><div id="reverbText">50%</div></div>
-        <div class="row"><label>Decay (s)</label><input id="decay" type="range" min="0.2" max="6" step="0.1" value="2.4"><div id="decayText">2.4s</div></div>
+        <div class="row"><label>Pitch</label><input id="pitch" type="range" min="0.5" max="1.5" step="0.01" value="1"><div id="pitchText">1.00</div></div>
+        <div class="row"><label>Reverb (Wet)</label><input id="reverb" type="range" min="0" max="1" step="0.01" value="0.5"><div id="reverbText">50%</div></div>
+        <div class="row"><label>Reverb Decay</label><input id="decay" type="range" min="0.2" max="6" step="0.1" value="2.4"><div id="decayText">2.4s</div></div>
       </div>
 
       <div>
-        <div class="row"><label>Delay (s)</label><input id="delayTime" type="range" min="0" max="1.2" step="0.01" value="0.28"><div id="delayTimeText">0.28s</div></div>
+        <div class="row"><label>Delay Time</label><input id="delayTime" type="range" min="0" max="1.2" step="0.01" value="0.28"><div id="delayTimeText">0.28s</div></div>
         <div class="row"><label>Delay Feedback</label><input id="delayFB" type="range" min="0" max="0.95" step="0.01" value="0.42"><div id="delayFBText">42%</div></div>
         <div class="row"><label>Bass (dB)</label><input id="bass" type="range" min="-12" max="12" step="0.5" value="0"><div id="bassText">0 dB</div></div>
         <div class="row"><label>Treble (dB)</label><input id="treble" type="range" min="-12" max="12" step="0.5" value="0"><div id="trebleText">0 dB</div></div>
       </div>
     </div>
 
-    <div class="row" style="margin-top:12px">
+    <div class="row" style="margin-top:10px">
       <button id="playBtn" class="primary">Play</button>
-      <button id="pauseBtn">Pause</button>
-      <button id="stopBtn">Stop</button>
+      <button id="pauseBtn" class="ghost">Pause</button>
+      <button id="stopBtn" class="ghost">Stop</button>
       <div style="flex:1"></div>
-      <div id="status" class="small">Idle</div>
+      <div id="status" class="note">Idle</div>
     </div>
 
     <audio id="audioEl" controls></audio>
 
-    <div style="margin-top:10px" class="small">Tip: Use headphones. For long files, use desktop or smaller segments.</div>
+    <div style="margin-top:12px" class="note">
+      <strong>Tips:</strong> For DJ Screw style use <em>Speed 0.75</em>, <em>Reverb 65%</em>, <em>Decay 3.2s</em>. PlaybackRate changes pitch+duration together — for time-stretch without pitch change we can add a library later.
+    </div>
   </div>
 </div>
 
 <script>
-/* Real-time WebAudio preview tool
-   - Uses HTMLAudioElement + MediaElementSource for live effects
-   - PlaybackRate changed on audio element for "slowed" effect (affects duration)
-   - Convolver (programmatic impulse) used for reverb (wet/dry mix)
-   - Delay node for echo
-   - Biquad nodes for bass/treble
-   - Presets provided
+/* Live Slowed+FX tool
+   - Uses HTMLAudioElement + Web Audio API (MediaElementSource)
+   - Presets applied via buttons
+   - Live parameter changes via sliders
+   - No server upload; file plays from user's device (URL.createObjectURL)
 */
 
 (() => {
   // UI refs
   const fileEl = document.getElementById('file');
-  const presetEl = document.getElementById('preset');
-  const applyPresetBtn = document.getElementById('applyPreset');
   const playBtn = document.getElementById('playBtn');
   const pauseBtn = document.getElementById('pauseBtn');
   const stopBtn = document.getElementById('stopBtn');
   const audioEl = document.getElementById('audioEl');
   const statusEl = document.getElementById('status');
 
-  // controls
   const speed = document.getElementById('speed');
   const speedText = document.getElementById('speedText');
   const pitch = document.getElementById('pitch');
@@ -115,7 +116,10 @@
   const treble = document.getElementById('treble');
   const trebleText = document.getElementById('trebleText');
 
-  // UI show values
+  const presetButtons = document.querySelectorAll('.preset-btn');
+  const applyCustomBtn = document.getElementById('applyCustom');
+
+  // show initial values
   const binds = [
     [speed, speedText, v=>v+'×'],
     [pitch, pitchText, v=>v],
@@ -126,152 +130,115 @@
     [bass, bassText, v=>v+' dB'],
     [treble, trebleText, v=>v+' dB']
   ];
-  binds.forEach(([el,txt,fmt])=>{
-    el.addEventListener('input',()=> txt.innerText = fmt(el.value));
-    txt.innerText = fmt(el.value);
-  });
+  binds.forEach(([el,txt,fmt])=>{ el.addEventListener('input',()=> txt.innerText = fmt(el.value)); txt.innerText = fmt(el.value); });
 
-  // Presets
+  // Preset values (exact)
   const PRESETS = {
-    lofi: {speed:0.85,pitch:1,reverb:0.5,decay:2.2,delayTime:0.18,delayFB:0.35,bass:2,treble:-1},
-    hall: {speed:1,pitch:1,reverb:0.8,decay:3.8,delayTime:0.28,delayFB:0.45,bass:0,treble:1},
-    club: {speed:1.02,pitch:1.02,reverb:0.35,decay:1.6,delayTime:0.12,delayFB:0.6,bass:5,treble:2},
-    clean: {speed:1,pitch:1,reverb:0.12,decay:0.8,delayTime:0.0,delayFB:0,bass:0,treble:0}
+    dj: {speed:0.75,pitch:0.95,reverb:0.65,decay:3.2,delayTime:0.20,delayFB:0.40,bass:2,treble:-2},
+    lofi: {speed:0.85,pitch:1.00,reverb:0.50,decay:2.2,delayTime:0.16,delayFB:0.33,bass:1,treble:-1},
+    hall: {speed:0.95,pitch:1.00,reverb:0.80,decay:4.2,delayTime:0.28,delayFB:0.45,bass:0,treble:2},
+    club: {speed:1.02,pitch:1.02,reverb:0.35,decay:1.6,delayTime:0.12,delayFB:0.60,bass:4,treble:2},
+    vintage: {speed:0.98,pitch:0.99,reverb:0.45,decay:2.0,delayTime:0.22,delayFB:0.36,bass:-1,treble:-2}
   };
 
-  applyPresetBtn.addEventListener('click', ()=>{
-    const p = presetEl.value;
-    if (PRESETS[p]) {
-      const c = PRESETS[p];
-      speed.value = c.speed; speedText.innerText = c.speed+'×';
-      pitch.value = c.pitch; pitchText.innerText = c.pitch;
-      reverb.value = c.reverb; reverbText.innerText = Math.round(c.reverb*100)+'%';
-      decay.value = c.decay; decayText.innerText = c.decay+'s';
-      delayTime.value = c.delayTime; delayTimeText.innerText = c.delayTime+'s';
-      delayFB.value = c.delayFB; delayFBText.innerText = Math.round(c.delayFB*100)+'%';
-      bass.value = c.bass; bassText.innerText = c.bass+' dB';
-      treble.value = c.treble; trebleText.innerText = c.treble+' dB';
-      statusEl.innerText = 'Preset applied: '+p;
-      applyLiveParams(); // apply immediately if playing
-    } else {
-      statusEl.innerText = 'Custom mode';
-    }
-  });
-
-  // AudioContext + nodes (created on first user gesture)
+  // Audio context + nodes (created on first gesture)
   let audioCtx = null;
   let srcNode = null;
-  let dryGain, wetGain, convolverNode, delayNode, delayFeedbackGain, bassFilter, trebleFilter, masterGain;
+  let dryGain, wetGain, convolver, delayNode, feedbackGain, bassFilter, trebleFilter, masterGain;
 
-  function ensureAudioContext() {
+  function ensureCtx() {
     if (audioCtx) return;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // create nodes
     dryGain = audioCtx.createGain(); wetGain = audioCtx.createGain();
-    convolverNode = audioCtx.createConvolver();
+    convolver = audioCtx.createConvolver();
     delayNode = audioCtx.createDelay(5.0);
-    delayFeedbackGain = audioCtx.createGain();
+    feedbackGain = audioCtx.createGain();
     bassFilter = audioCtx.createBiquadFilter(); bassFilter.type = 'lowshelf'; bassFilter.frequency.value = 200;
     trebleFilter = audioCtx.createBiquadFilter(); trebleFilter.type = 'highshelf'; trebleFilter.frequency.value = 3000;
     masterGain = audioCtx.createGain(); masterGain.gain.value = 1.0;
 
-    // feedback loop
-    delayNode.connect(delayFeedbackGain);
-    delayFeedbackGain.connect(delayNode);
-
-    // default connects will be established every time we create srcNode (see connectSource)
+    // connect feedback loop
+    delayNode.connect(feedbackGain);
+    feedbackGain.connect(delayNode);
   }
 
   function connectSource() {
-    // disconnect previous if exists
     try { if (srcNode) srcNode.disconnect(); } catch(e){}
     srcNode = audioCtx.createMediaElementSource(audioEl);
-
-    // route: src -> bass -> treble -> (dry->master) and -> convolver->wet->master and -> delay->master
+    // route: src -> bass -> treble -> split:
+    // -> dryGain -> master -> destination
+    // -> convolver -> wetGain -> master
+    // -> delay -> master
     srcNode.connect(bassFilter);
     bassFilter.connect(trebleFilter);
 
-    // dry
     trebleFilter.connect(dryGain);
     dryGain.connect(masterGain);
-
-    // reverb path
-    trebleFilter.connect(convolverNode);
-    convolverNode.connect(wetGain);
+    trebleFilter.connect(convolver);
+    convolver.connect(wetGain);
     wetGain.connect(masterGain);
-
-    // delay path
     trebleFilter.connect(delayNode);
     delayNode.connect(masterGain);
 
-    // master to destination
     masterGain.connect(audioCtx.destination);
   }
 
-  // Create programmatic impulse response for convolver
-  function createImpulseResponse(durationSec, decay) {
+  // create IR for convolver (programmatic)
+  function createIR(duration, decayVal) {
     const sr = audioCtx.sampleRate;
-    const len = Math.floor(sr * durationSec);
+    const len = Math.floor(sr * duration);
     const ir = audioCtx.createBuffer(2, len, sr);
     for (let ch=0; ch<2; ch++){
       const data = ir.getChannelData(ch);
       for (let i=0;i<len;i++){
-        // white noise with exponential decay
-        data[i] = (Math.random()*2 -1) * Math.pow(1 - i/len, decay);
+        data[i] = (Math.random()*2 - 1) * Math.pow(1 - i/len, decayVal);
       }
     }
     return ir;
   }
 
-  // Apply UI values to nodes (live)
+  // Apply UI parameters live
   function applyLiveParams() {
     if (!audioCtx) return;
-    // speed/pitch: playbackRate on audio element (affects duration)
+    // playbackRate on audio element (affects pitch+duration)
     audioEl.playbackRate = parseFloat(speed.value) * parseFloat(pitch.value);
     // wet/dry
     wetGain.gain.value = parseFloat(reverb.value);
     dryGain.gain.value = 1 - parseFloat(reverb.value);
-    // decay: regen impulse
-    try {
-      convolverNode.buffer = createImpulseResponse(parseFloat(decay.value), parseFloat(decay.value));
-    } catch(e) { console.warn('Convolver IR error', e); }
+    // convolver IR
+    try{
+      convolver.buffer = createIR(Math.min(6, Math.max(0.2, parseFloat(decay.value))), parseFloat(decay.value));
+    }catch(e){ console.debug('IR create err', e); }
     // delay
     delayNode.delayTime.value = parseFloat(delayTime.value);
-    delayFeedbackGain.gain.value = parseFloat(delayFB.value);
+    feedbackGain.gain.value = parseFloat(delayFB.value);
     // EQ
     bassFilter.gain.value = parseFloat(bass.value);
     trebleFilter.gain.value = parseFloat(treble.value);
-    // master gain left at 1.0
   }
 
-  // file handling
+  // File select
   fileEl.addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
-    // optional size check: warn if large
     if (f.size > 25 * 1024 * 1024) {
-      if (!confirm('File is large and may be slow on mobile. Continue?')) { fileEl.value = ''; return; }
+      if (!confirm('File is large and may be slow on mobile. Continue?')) { fileEl.value=''; return; }
     }
     const url = URL.createObjectURL(f);
     audioEl.src = url;
     audioEl.load();
-    statusEl.innerText = 'File loaded. Click Play.';
+    statusEl.innerText = 'File loaded — click Play';
   });
 
-  // Play / Pause / Stop handlers
-  playBtn.addEventListener('click', async ()=> {
+  // Play / Pause / Stop
+  playBtn.addEventListener('click', async () => {
     if (!audioEl.src) return alert('Select a file first');
-    // resume/create audio context on user gesture
-    ensureAudioContext();
-    // connect media source if not connected
+    ensureCtx();
     if (!srcNode) connectSource();
     applyLiveParams();
-    try {
-      // On some browsers AudioContext suspended until resumed by user gesture
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
-    } catch(e){}
-    await audioEl.play().catch(e=>{ console.warn(e); statusEl.innerText = 'Playback blocked. Tap to allow.'; });
-    statusEl.innerText = 'Playing (live effects)';
+    try { if (audioCtx.state === 'suspended') await audioCtx.resume(); } catch(e){}
+    audioEl.play().catch(e=>{ console.warn(e); statusEl.innerText='Playback blocked — tap to allow'; });
+    statusEl.innerText = 'Playing — live effects applied';
   });
 
   pauseBtn.addEventListener('click', ()=> {
@@ -285,21 +252,47 @@
     statusEl.innerText = 'Stopped';
   });
 
-  // update params live when sliders change
-  [...document.querySelectorAll('input[type="range"]')].forEach(el=>{
+  // slider live updates
+  document.querySelectorAll('input[type="range"]').forEach(el=>{
     el.addEventListener('input', ()=>{
       applyLiveParams();
     });
   });
 
-  // handle unload/cleanup
+  // preset buttons
+  presetButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const p = btn.getAttribute('data-preset');
+      if (!PRESETS[p]) return;
+      const cfg = PRESETS[p];
+      speed.value = cfg.speed; speedText.innerText = cfg.speed+'×';
+      pitch.value = cfg.pitch; pitchText.innerText = cfg.pitch;
+      reverb.value = cfg.reverb; reverbText.innerText = Math.round(cfg.reverb*100)+'%';
+      decay.value = cfg.decay; decayText.innerText = cfg.decay+'s';
+      delayTime.value = cfg.delayTime; delayTimeText.innerText = cfg.delayTime+'s';
+      delayFB.value = cfg.delayFB; delayFBText.innerText = Math.round(cfg.delayFB*100)+'%';
+      bass.value = cfg.bass; bassText.innerText = cfg.bass+' dB';
+      treble.value = cfg.treble; trebleText.innerText = cfg.treble+' dB';
+      // apply immediately if playing
+      applyLiveParams();
+      statusEl.innerText = 'Preset applied: '+ (p.toUpperCase());
+    });
+  });
+
+  // apply custom (just updates live params)
+  applyCustomBtn.addEventListener('click', ()=>{
+    applyLiveParams();
+    statusEl.innerText = 'Custom settings applied';
+  });
+
+  // cleanup on unload
   window.addEventListener('beforeunload', ()=>{
     try { if (audioEl.src) URL.revokeObjectURL(audioEl.src); } catch(e){}
     try { if (audioCtx) audioCtx.close(); } catch(e){}
   });
 
-  // initial text
-  statusEl.innerText = 'Idle — load a file and press Play.';
+  // initial status
+  statusEl.innerText = 'Idle — load a file and press Play';
 })();
 </script>
 </body>
