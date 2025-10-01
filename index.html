@@ -1,124 +1,443 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Slowed + Reverb Tool</title>
-  <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      text-align: center; 
-      background: #121212; 
-      color: white; 
-      padding: 20px;
-    }
-    input[type=range] {
-      width: 300px;
-    }
-    .control {
-      margin: 20px 0;
-    }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LoFi Slowed + Reverb + Bass Boost — Live Tool</title>
+<meta name="description" content="LoFi Slowed + Reverb + Bass Boost generator. Live preview, presets, render and download WAV. No server upload.">
+<style>
+  :root{--bg:#07121a;--card:#0c1720;--accent:#23c6ff;--muted:#9fb6c6}
+  body{background:var(--bg);color:#e6f9ff;font-family:Inter,system-ui,Arial;margin:0;padding:18px}
+  .wrap{max-width:980px;margin:0 auto}
+  .card{background:var(--card);padding:18px;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+  h1{margin:0 0 6px;color:var(--accent)}
+  .muted{color:var(--muted);font-size:13px}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  label{min-width:120px;color:#cfe8ff}
+  input[type=range]{width:260px}
+  select,input[type=file],button{padding:8px;border-radius:8px;border:1px solid #233;background:#06111a;color:#e8fbff}
+  button.primary{background:var(--accent);color:#002;border:0}
+  button.ghost{background:transparent;border:1px solid #21323a;color:#cfe8ff}
+  audio{width:100%;margin-top:12px;border-radius:8px;background:#000}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr} input[type=range]{width:180px} label{min-width:90px}}
+  .preset-row{display:flex;gap:8px;flex-wrap:wrap}
+  .preset-btn{background:#0b2b35;color:#cfe;padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
+  .note{font-size:13px;color:var(--muted)}
+  progress{width:100%;height:14px;border-radius:8px;background:#012;display:none}
+  .controls {margin-top:8px}
+  a.download{display:inline-block;margin-top:8px;padding:8px 12px;background:#1ab66d;color:#012;border-radius:8px;text-decoration:none}
+</style>
 </head>
 <body>
-  <h1>🎶 Slowed + Reverb Tool</h1>
-  <input type="file" id="fileInput" accept="audio/*"><br><br>
-  <button id="playBtn">▶ Play</button>
-  <button id="stopBtn">⏹ Stop</button>
+<div class="wrap">
+  <div class="card">
+    <h1>LoFi Slowed + Reverb + Bass Boost</h1>
+    <div class="muted">Upload a track → play live → tweak sliders → Render & Download WAV. All processing happens in your browser.</div>
 
-  <div class="control">
-    <label>Speed: <span id="speedVal">1.0</span>x</label><br>
-    <input type="range" id="speedControl" min="0.5" max="1.5" value="1" step="0.01">
+    <div class="row">
+      <label for="file">Select audio</label>
+      <input id="file" type="file" accept="audio/*">
+      <div style="margin-left:auto" class="note">Recommended ≤ 25MB. Long files may be slow to render.</div>
+    </div>
+
+    <div class="row">
+      <label>Presets</label>
+      <div class="preset-row">
+        <button class="preset-btn" data-preset="lofi">LoFi</button>
+        <button class="preset-btn" data-preset="slowed">Slowed+Reverb</button>
+        <button class="preset-btn" data-preset="bass">Bass Boost</button>
+        <button class="preset-btn" data-preset="vintage">Vintage</button>
+        <button class="preset-btn" data-preset="clean">Clean</button>
+      </div>
+    </div>
+
+    <div class="grid controls">
+      <div>
+        <div class="row"><label>Speed</label><input id="speed" type="range" min="0.5" max="1.2" step="0.01" value="0.85"><div id="speedText">0.85×</div></div>
+        <div class="row"><label>Reverb (wet)</label><input id="reverb" type="range" min="0" max="1" step="0.01" value="0.5"><div id="reverbText">50%</div></div>
+        <div class="row"><label>Decay (s)</label><input id="decay" type="range" min="0.2" max="6" step="0.1" value="2.4"><div id="decayText">2.4s</div></div>
+      </div>
+
+      <div>
+        <div class="row"><label>Delay (s)</label><input id="delayTime" type="range" min="0" max="1.2" step="0.01" value="0.28"><div id="delayTimeText">0.28s</div></div>
+        <div class="row"><label>Delay FB</label><input id="delayFB" type="range" min="0" max="0.95" step="0.01" value="0.42"><div id="delayFBText">42%</div></div>
+        <div class="row"><label>Bass (dB)</label><input id="bass" type="range" min="-12" max="12" step="0.5" value="0"><div id="bassText">0 dB</div></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button id="playBtn" class="primary">Play</button>
+      <button id="pauseBtn" class="ghost">Pause</button>
+      <button id="stopBtn" class="ghost">Stop</button>
+      <div style="flex:1"></div>
+      <div id="status" class="note">Idle — load a file and press Play.</div>
+    </div>
+
+    <audio id="audioEl" controls></audio>
+
+    <div class="row" style="margin-top:12px">
+      <button id="renderBtn" class="primary">Render & Download WAV</button>
+      <progress id="prog" max="100" value="0"></progress>
+      <a id="download" class="download" style="display:none">Download WAV</a>
+    </div>
+
+    <div style="margin-top:12px" class="note">
+      Tip: For LoFi vibe use Speed 0.85, Reverb 50%, Decay 2.4s. For DJ Screw style use Speed 0.75 and Bass +3.
+    </div>
   </div>
+</div>
 
-  <div class="control">
-    <label>Reverb: <span id="reverbVal">0.0</span></label><br>
-    <input type="range" id="reverbControl" min="0" max="1" value="0" step="0.01">
-  </div>
+<script>
+/*
+  LoFi Slowed + Reverb + Bass Boost tool
+  - Live preview via MediaElementSource + nodes (wet/dry, convolver, delay, EQ)
+  - Offline rendering via OfflineAudioContext to produce WAV (PCM16)
+  - Limits: very long files may take long or fail on low devices; recommended <=25MB
+*/
 
-  <div class="control">
-    <label>Echo: <span id="echoVal">0.0</span></label><br>
-    <input type="range" id="echoControl" min="0" max="0.8" value="0" step="0.01">
-  </div>
+/* ---------- UI Refs ---------- */
+const fileEl = document.getElementById('file');
+const playBtn = document.getElementById('playBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const stopBtn = document.getElementById('stopBtn');
+const audioEl = document.getElementById('audioEl');
+const statusEl = document.getElementById('status');
 
-  <script>
-    let audioCtx, source, reverbNode, delayNode, gainNode;
-    let audioBuffer;
+const speed = document.getElementById('speed'), speedText = document.getElementById('speedText');
+const reverb = document.getElementById('reverb'), reverbText = document.getElementById('reverbText');
+const decay = document.getElementById('decay'), decayText = document.getElementById('decayText');
+const delayTime = document.getElementById('delayTime'), delayTimeText = document.getElementById('delayTimeText');
+const delayFB = document.getElementById('delayFB'), delayFBText = document.getElementById('delayFBText');
+const bass = document.getElementById('bass'), bassText = document.getElementById('bassText');
 
-    const fileInput = document.getElementById('fileInput');
-    const playBtn = document.getElementById('playBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const speedControl = document.getElementById('speedControl');
-    const reverbControl = document.getElementById('reverbControl');
-    const echoControl = document.getElementById('echoControl');
+const presetButtons = document.querySelectorAll('.preset-btn');
+const renderBtn = document.getElementById('renderBtn');
+const prog = document.getElementById('prog');
+const downloadA = document.getElementById('download');
 
-    const speedVal = document.getElementById('speedVal');
-    const reverbVal = document.getElementById('reverbVal');
-    const echoVal = document.getElementById('echoVal');
+/* ---------- State ---------- */
+const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+let audioCtx = null;
+let srcNode = null;
+let dryGain, wetGain, convolver, delayNode, feedbackGain, bassFilter, trebleFilter, masterGain;
+let currentFileURL = null;
+let lastRenderedURL = null;
 
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      const arrayBuffer = await file.arrayBuffer();
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    });
+/* ---------- Presets ---------- */
+const PRESETS = {
+  lofi: { speed:0.85, reverb:0.5, decay:2.4, delayTime:0.18, delayFB:0.33, bass:1 },
+  slowed: { speed:0.75, reverb:0.65, decay:3.2, delayTime:0.20, delayFB:0.40, bass:2 },
+  bass: { speed:0.98, reverb:0.35, decay:1.8, delayTime:0.12, delayFB:0.45, bass:4 },
+  vintage: { speed:0.98, reverb:0.45, decay:2.0, delayTime:0.22, delayFB:0.36, bass:-1 },
+  clean: { speed:1.00, reverb:0.12, decay:0.8, delayTime:0.0, delayFB:0.0, bass:0 }
+};
 
-    function createAudioGraph() {
-      source = audioCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.playbackRate.value = parseFloat(speedControl.value);
+/* ---------- UI value bindings ---------- */
+const binds = [
+  [speed, speedText, v=>v+'×'],
+  [reverb, reverbText, v=>Math.round(v*100)+'%'],
+  [decay, decayText, v=>v+'s'],
+  [delayTime, delayTimeText, v=>v+'s'],
+  [delayFB, delayFBText, v=>Math.round(v*100)+'%'],
+  [bass, bassText, v=>v+' dB']
+];
+binds.forEach(([el,txt,fmt])=>{
+  el.addEventListener('input', ()=> { txt.innerText = fmt(el.value); applyLiveParams(); });
+  txt.innerText = fmt(el.value);
+});
 
-      reverbNode = audioCtx.createConvolver();
-      // Simple reverb impulse response
-      const irBuffer = audioCtx.createBuffer(2, audioCtx.sampleRate * 3, audioCtx.sampleRate);
-      for (let c = 0; c < irBuffer.numberOfChannels; c++) {
-        let channelData = irBuffer.getChannelData(c);
-        for (let i = 0; i < channelData.length; i++) {
-          channelData[i] = (Math.random() * 2 - 1) * (1 - i / channelData.length);
-        }
-      }
-      reverbNode.buffer = irBuffer;
+/* ---------- Ensure AudioContext and nodes ---------- */
+function ensureAudioContext(){
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // nodes
+  dryGain = audioCtx.createGain();
+  wetGain = audioCtx.createGain();
+  convolver = audioCtx.createConvolver();
+  delayNode = audioCtx.createDelay(5.0);
+  feedbackGain = audioCtx.createGain();
+  bassFilter = audioCtx.createBiquadFilter(); bassFilter.type = 'lowshelf'; bassFilter.frequency.value = 200;
+  trebleFilter = audioCtx.createBiquadFilter(); trebleFilter.type = 'highshelf'; trebleFilter.frequency.value = 3000;
+  masterGain = audioCtx.createGain(); masterGain.gain.value = 1.0;
 
-      delayNode = audioCtx.createDelay();
-      delayNode.delayTime.value = parseFloat(echoControl.value);
+  // feedback loop
+  delayNode.connect(feedbackGain);
+  feedbackGain.connect(delayNode);
 
-      gainNode = audioCtx.createGain();
-      gainNode.gain.value = 1.0;
+  // default gains
+  dryGain.gain.value = 1;
+  wetGain.gain.value = 0.5;
+  feedbackGain.gain.value = 0.4;
+}
 
-      // Chain: Source → Reverb → Echo → Gain → Destination
-      source.connect(reverbNode);
-      reverbNode.connect(delayNode);
-      delayNode.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
+/* ---------- Connect Media Element Source ---------- */
+function connectSource(){
+  if (!audioCtx) return;
+  try { if (srcNode) srcNode.disconnect(); } catch(e){}
+  srcNode = audioCtx.createMediaElementSource(audioEl);
+
+  // route: src -> bass -> treble -> split to dry, convolver (wet), delay -> master -> destination
+  srcNode.connect(bassFilter);
+  bassFilter.connect(trebleFilter);
+
+  trebleFilter.connect(dryGain);
+  dryGain.connect(masterGain);
+
+  trebleFilter.connect(convolver);
+  convolver.connect(wetGain);
+  wetGain.connect(masterGain);
+
+  trebleFilter.connect(delayNode);
+  delayNode.connect(masterGain);
+
+  masterGain.connect(audioCtx.destination);
+}
+
+/* ---------- Create impulse response for reverb (programmatic) ---------- */
+function createIR(context, durationSec, decay){
+  const sr = context.sampleRate;
+  const len = Math.floor(sr * durationSec);
+  const numCh = 2;
+  const ir = context.createBuffer(numCh, len, sr);
+  for (let ch=0; ch<numCh; ch++){
+    const data = ir.getChannelData(ch);
+    for (let i=0;i<len;i++){
+      data[i] = (Math.random()*2 - 1) * Math.pow(1 - i/len, decay);
     }
+  }
+  return ir;
+}
 
-    playBtn.addEventListener('click', () => {
-      if (!audioBuffer) return alert("Upload an audio first!");
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      createAudioGraph();
-      source.start();
-    });
+/* ---------- Apply live slider values ---------- */
+function applyLiveParams(){
+  if (!audioCtx) return;
+  // playbackRate applied to <audio> element (affects pitch+duration)
+  audioEl.playbackRate = parseFloat(speed.value);
+  // wet/dry mix
+  wetGain.gain.value = parseFloat(reverb.value);
+  dryGain.gain.value = 1 - parseFloat(reverb.value);
+  // convolver IR (recreate small IR on change)
+  try {
+    convolver.buffer = createIR(audioCtx, Math.min(6, Math.max(0.2, parseFloat(decay.value))), parseFloat(decay.value));
+  } catch(e) { console.warn('IR create failed', e); }
+  // delay & feedback
+  delayNode.delayTime.value = parseFloat(delayTime.value);
+  feedbackGain.gain.value = parseFloat(delayFB.value);
+  // EQ
+  bassFilter.gain.value = parseFloat(bass.value);
+  trebleFilter.gain.value = 0; // keep treble neutral; you can expose if needed
+}
 
-    stopBtn.addEventListener('click', () => {
-      if (source) source.stop();
-    });
+/* ---------- File load ---------- */
+fileEl.addEventListener('change', (e)=>{
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  if (f.size > MAX_BYTES) {
+    if (!confirm('File is large and may be slow or fail on mobile. Continue?')) { fileEl.value=''; return; }
+  }
+  if (currentFileURL) { URL.revokeObjectURL(currentFileURL); currentFileURL = null; }
+  currentFileURL = URL.createObjectURL(f);
+  audioEl.src = currentFileURL;
+  audioEl.load();
+  statusEl.innerText = 'File loaded. Click Play.';
+});
 
-    // Live Controls
-    speedControl.addEventListener('input', () => {
-      speedVal.textContent = speedControl.value;
-      if (source) source.playbackRate.value = parseFloat(speedControl.value);
-    });
+/* ---------- Play / Pause / Stop ---------- */
+playBtn.addEventListener('click', async ()=>{
+  if (!audioEl.src) return alert('Select a file first');
+  ensureAudioContext();
+  if (!srcNode) connectSource();
+  applyLiveParams();
+  try { if (audioCtx.state === 'suspended') await audioCtx.resume(); } catch(e){}
+  audioEl.play().catch(err=> { console.warn(err); statusEl.innerText='Playback blocked — tap to allow'; });
+  statusEl.innerText = 'Playing (live effects applied)';
+});
+pauseBtn.addEventListener('click', ()=>{ audioEl.pause(); statusEl.innerText='Paused'; });
+stopBtn.addEventListener('click', ()=>{ audioEl.pause(); audioEl.currentTime = 0; statusEl.innerText='Stopped'; });
 
-    reverbControl.addEventListener('input', () => {
-      reverbVal.textContent = reverbControl.value;
-      // Reverb intensity handled by gainNode
-      if (gainNode) gainNode.gain.value = 1 + parseFloat(reverbControl.value);
-    });
+/* ---------- Preset buttons ---------- */
+presetButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const p = btn.getAttribute('data-preset');
+    const cfg = PRESETS[p];
+    if (!cfg) return;
+    speed.value = cfg.speed; speedText.innerText = cfg.speed+'×';
+    reverb.value = cfg.reverb; reverbText.innerText = Math.round(cfg.reverb*100)+'%';
+    decay.value = cfg.decay; decayText.innerText = cfg.decay+'s';
+    delayTime.value = cfg.delayTime; delayTimeText.innerText = cfg.delayTime+'s';
+    delayFB.value = cfg.delayFB; delayFBText.innerText = Math.round(cfg.delayFB*100)+'%';
+    bass.value = cfg.bass; bassText.innerText = cfg.bass+' dB';
+    applyLiveParams();
+    statusEl.innerText = 'Preset applied: ' + p;
+  });
+});
 
-    echoControl.addEventListener('input', () => {
-      echoVal.textContent = echoControl.value;
-      if (delayNode) delayNode.delayTime.value = parseFloat(echoControl.value);
-    });
-  </script>
+/* ---------- Offline render & WAV export ---------- */
+function audioBufferToWavBlob(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const bytesPerSample = 2;
+  const blockAlign = numChannels * bytesPerSample;
+  const dataLen = buffer.length * blockAlign;
+  const bufferLen = 44 + dataLen;
+  const arrayBuffer = new ArrayBuffer(bufferLen);
+  const view = new DataView(arrayBuffer);
+
+  function writeString(offset, s){
+    for (let i=0;i<s.length;i++) view.setUint8(offset+i, s.charCodeAt(i));
+  }
+  let offset = 0;
+  writeString(offset, 'RIFF'); offset +=4;
+  view.setUint32(offset, 36 + dataLen, true); offset +=4;
+  writeString(offset, 'WAVE'); offset +=4;
+  writeString(offset, 'fmt '); offset +=4;
+  view.setUint32(offset, 16, true); offset +=4;
+  view.setUint16(offset, 1, true); offset +=2;
+  view.setUint16(offset, numChannels, true); offset +=2;
+  view.setUint32(offset, sampleRate, true); offset +=4;
+  view.setUint32(offset, sampleRate * blockAlign, true); offset +=4;
+  view.setUint16(offset, blockAlign, true); offset +=2;
+  view.setUint16(offset, bytesPerSample*8, true); offset +=2;
+  writeString(offset, 'data'); offset +=4;
+  view.setUint32(offset, dataLen, true); offset +=4;
+
+  let pos = 44;
+  const channelData = [];
+  for (let ch=0; ch<numChannels; ch++) channelData.push(buffer.getChannelData(ch));
+  for (let i=0;i<buffer.length;i++){
+    for (let ch=0; ch<numChannels; ch++){
+      let sample = Math.max(-1, Math.min(1, channelData[ch][i]));
+      view.setInt16(pos, sample < 0 ? sample*0x8000 : sample*0x7FFF, true);
+      pos += 2;
+    }
+  }
+  return new Blob([view], { type: 'audio/wav' });
+}
+
+async function renderOfflineAndPrepareDownload() {
+  const f = fileEl.files && fileEl.files[0];
+  if (!f) return alert('Select a file first');
+  if (f.size > MAX_BYTES && !confirm('File is large and may fail on some devices. Continue?')) return;
+
+  statusEl.innerText = 'Preparing...';
+  prog.style.display = 'block';
+  prog.value = 0;
+
+  try {
+    // decode original into AudioBuffer using temporary context (to be safe)
+    const array = await f.arrayBuffer();
+    const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const originalBuffer = await tmpCtx.decodeAudioData(array.slice(0));
+    await tmpCtx.close();
+
+    // collect config
+    const cfg = {
+      speed: parseFloat(speed.value),
+      reverb: parseFloat(reverb.value),
+      decay: parseFloat(decay.value),
+      delayTime: parseFloat(delayTime.value),
+      delayFB: parseFloat(delayFB.value),
+      bass: parseFloat(bass.value)
+    };
+
+    // render
+    statusEl.innerText = 'Rendering (this may take a few seconds)...';
+    prog.value = 10;
+
+    const rendered = await renderOffline(originalBuffer, cfg, progress=>{ prog.value = Math.min(95, 10 + progress*0.9); });
+
+    prog.value = 95;
+    statusEl.innerText = 'Finalizing...';
+
+    const wavBlob = audioBufferToWavBlob(rendered);
+
+    if (lastRenderedURL) { try{ URL.revokeObjectURL(lastRenderedURL); } catch(e){} lastRenderedURL = null; }
+    lastRenderedURL = URL.createObjectURL(wavBlob);
+    downloadA.href = lastRenderedURL;
+    downloadA.download = `lofi_processed_${Date.now()}.wav`;
+    downloadA.style.display = 'inline-block';
+    prog.value = 100;
+    setTimeout(()=>{ prog.style.display = 'none'; prog.value = 0; }, 600);
+    statusEl.innerText = 'Ready — click Download to save WAV.';
+  } catch(err) {
+    console.error(err);
+    statusEl.innerText = 'Render error: ' + (err && err.message ? err.message : err);
+    alert('Render failed. Try a smaller file or use lower settings.');
+    prog.style.display = 'none';
+  }
+}
+
+/* ---------- renderOffline implementation ---------- */
+async function renderOffline(originalBuffer, cfg, onProgress) {
+  // cfg: {speed, reverb, decay, delayTime, delayFB, bass}
+  const playbackRate = cfg.speed || 1;
+  const newDuration = originalBuffer.duration / playbackRate;
+  const sr = originalBuffer.sampleRate;
+  const channels = originalBuffer.numberOfChannels;
+  const len = Math.ceil(newDuration * sr) + 1;
+
+  // create offline context
+  const offline = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(channels, len, sr);
+
+  // source
+  const src = offline.createBufferSource();
+  src.buffer = originalBuffer;
+  src.playbackRate.value = playbackRate;
+
+  // nodes in offline context
+  const bassF = offline.createBiquadFilter(); bassF.type = 'lowshelf'; bassF.frequency.value = 200; bassF.gain.value = cfg.bass || 0;
+  const trebleF = offline.createBiquadFilter(); trebleF.type = 'highshelf'; trebleF.frequency.value = 3000; trebleF.gain.value = 0;
+  const dry = offline.createGain(); dry.gain.value = 1 - (cfg.reverb || 0);
+  const wet = offline.createGain(); wet.gain.value = (cfg.reverb || 0);
+  const conv = offline.createConvolver();
+  const delay = offline.createDelay(5.0); delay.delayTime.value = cfg.delayTime || 0;
+  const fb = offline.createGain(); fb.gain.value = cfg.delayFB || 0.4;
+  const master = offline.destination;
+
+  // convolver IR (create inside offline)
+  const ir = createIR(offline, Math.min(6, Math.max(0.2, cfg.decay || 2.4)), cfg.decay || 2.4);
+  conv.buffer = ir;
+
+  // connect feedback loop
+  delay.connect(fb);
+  fb.connect(delay);
+
+  // routing
+  src.connect(bassF);
+  bassF.connect(trebleF);
+
+  // dry
+  trebleF.connect(dry);
+  dry.connect(master);
+
+  // reverb/wet
+  trebleF.connect(conv);
+  conv.connect(wet);
+  wet.connect(master);
+
+  // delay path
+  trebleF.connect(delay);
+  delay.connect(master);
+
+  // start
+  src.start(0);
+
+  // offline rendering
+  // NOTE: OfflineAudioContext.startRendering returns a Promise
+  const rendered = await offline.startRendering();
+  return rendered;
+}
+
+/* ---------- Event: Render button ---------- */
+renderBtn.addEventListener('click', renderOfflineAndPrepareDownload);
+
+/* ---------- Cleanup ---------- */
+window.addEventListener('beforeunload', ()=>{
+  try{ if (currentFileURL) URL.revokeObjectURL(currentFileURL); } catch(e){}
+  try{ if (lastRenderedURL) URL.revokeObjectURL(lastRenderedURL); } catch(e){}
+  try{ if (audioCtx) audioCtx.close(); } catch(e){}
+});
+</script>
 </body>
 </html>
