@@ -8,12 +8,15 @@
   .control { margin:15px; }
   input[type=range] { width:300px; }
   button { margin:5px; padding:10px 20px; font-size:16px; cursor:pointer; }
+  #uploadStatus { margin:10px; font-size:14px; }
+  canvas { display:block; margin:20px auto; background:#222; border-radius:5px; }
 </style>
 </head>
 <body>
 <h1>🎶 LoFi Slowed + Reverb + Bass Tool</h1>
 
-<input type="file" id="fileInput" accept="audio/*"><br><br>
+<input type="file" id="fileInput" accept="audio/*"><br>
+<div id="uploadStatus"></div>
 
 <button id="playBtn">▶ Play</button>
 <button id="stopBtn">⏹ Stop</button>
@@ -34,24 +37,35 @@
   <input type="range" id="bassControl" min="0" max="20" value="0" step="1">
 </div>
 
-<script>
-let audioCtx, audioBuffer, source;
-let convolver, bassFilter, wetGain, dryGain, masterGain;
+<canvas id="visualizer" width="800" height="150"></canvas>
 
-// Load audio
+<script>
+let audioCtx, audioBuffer;
+let source = null;
+let convolver, bassFilter, wetGain, dryGain, masterGain;
+let analyser, dataArray, animationId;
+
+// Upload audio with animation
 document.getElementById("fileInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const arrayBuffer = await file.arrayBuffer();
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  alert("✅ Audio loaded! Now press Play.");
+  const status = document.getElementById("uploadStatus");
+  status.textContent = "⏳ Uploading / Decoding audio...";
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    status.textContent = "✅ Audio loaded! Press Play.";
+  } catch(err) {
+    status.textContent = "❌ Error loading audio!";
+    console.error(err);
+  }
 });
 
 // Reverb impulse
-function createReverbIR() {
-  let length = audioCtx.sampleRate * 3; // 3 seconds
-  let impulse = audioCtx.createBuffer(2, length, audioCtx.sampleRate);
+function createReverbIR(ctx) {
+  let length = ctx.sampleRate * 3;
+  let impulse = ctx.createBuffer(2, length, ctx.sampleRate);
   for (let c = 0; c < impulse.numberOfChannels; c++) {
     let channel = impulse.getChannelData(c);
     for (let i = 0; i < length; i++) {
@@ -61,17 +75,60 @@ function createReverbIR() {
   return impulse;
 }
 
-// Create audio chain
-function createAudioGraph() {
+// Visualizer
+function startVisualizer() {
+  const canvas = document.getElementById("visualizer");
+  const ctx = canvas.getContext("2d");
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  const bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+
+  source.connect(analyser);
+  analyser.connect(audioCtx.destination);
+
+  function draw() {
+    animationId = requestAnimationFrame(draw);
+    analyser.getByteFrequencyData(dataArray);
+    ctx.fillStyle = "#222";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    const barWidth = (canvas.width / bufferLength) * 2.5;
+    let x = 0;
+    for(let i = 0; i < bufferLength; i++){
+      const barHeight = dataArray[i]/2;
+      ctx.fillStyle = `rgb(${barHeight+100},50,200)`;
+      ctx.fillRect(x,canvas.height-barHeight,barWidth,barHeight);
+      x += barWidth + 1;
+    }
+  }
+  draw();
+}
+
+// Play
+document.getElementById("playBtn").addEventListener("click", () => {
+  if (!audioBuffer) return alert("Upload audio first!");
+  if (audioCtx.state === "suspended") audioCtx.resume();
+
+  // Stop old source if exists
+  if (source) {
+    try { source.stop(); } catch(e){ }
+    source.disconnect();
+    cancelAnimationFrame(animationId);
+  }
+
+  // Create new source
   source = audioCtx.createBufferSource();
   source.buffer = audioBuffer;
 
+  // Audio chain
   bassFilter = audioCtx.createBiquadFilter();
   bassFilter.type = "lowshelf";
   bassFilter.frequency.value = 200;
+  bassFilter.gain.value = parseFloat(document.getElementById("bassControl").value);
 
   convolver = audioCtx.createConvolver();
-  convolver.buffer = createReverbIR();
+  convolver.buffer = createReverbIR(audioCtx);
 
   wetGain = audioCtx.createGain();
   dryGain = audioCtx.createGain();
@@ -85,26 +142,28 @@ function createAudioGraph() {
   wetGain.connect(masterGain);
   masterGain.connect(audioCtx.destination);
 
-  // Initial values
   dryGain.gain.value = 1;
   wetGain.gain.value = parseFloat(document.getElementById("reverbControl").value);
-  bassFilter.gain.value = parseFloat(document.getElementById("bassControl").value);
   source.playbackRate.value = parseFloat(document.getElementById("speedControl").value);
-}
 
-// Play / Stop
-document.getElementById("playBtn").addEventListener("click", () => {
-  if (!audioBuffer) return alert("Upload audio first!");
-  if (audioCtx.state === "suspended") audioCtx.resume();
-  createAudioGraph();
   source.start();
+  startVisualizer();
 });
 
+// Stop
 document.getElementById("stopBtn").addEventListener("click", () => {
-  if (source) source.stop();
+  if (source) {
+    try { source.stop(); } catch(e){ }
+    source.disconnect();
+    source = null;
+    cancelAnimationFrame(animationId);
+    const canvas = document.getElementById("visualizer");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
 });
 
-// Slider events
+// Sliders
 document.getElementById("speedControl").addEventListener("input", e => {
   if (source) source.playbackRate.value = parseFloat(e.target.value);
   document.getElementById("speedVal").textContent = e.target.value;
@@ -123,7 +182,6 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
   if (!audioBuffer) return alert("Upload audio first!");
   const offlineCtx = new OfflineAudioContext(2, audioBuffer.length, audioBuffer.sampleRate);
 
-  // Recreate nodes
   const src = offlineCtx.createBufferSource();
   src.buffer = audioBuffer;
 
@@ -134,7 +192,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
   const conv = offlineCtx.createConvolver();
   conv.buffer = offlineCtx.createBuffer(2, offlineCtx.sampleRate*3, offlineCtx.sampleRate);
-  for (let c=0;c<2;c++) {
+  for (let c=0; c<2; c++) {
     const channel = conv.buffer.getChannelData(c);
     for(let i=0;i<channel.length;i++) channel[i] = (Math.random()*2-1)*(1-i/channel.length);
   }
@@ -152,61 +210,59 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
   master.connect(offlineCtx.destination);
 
   src.playbackRate.value = parseFloat(document.getElementById("speedControl").value);
-  dry.gain.value = 1;
-  wet.gain.value = parseFloat(document.getElementById("reverbControl").value);
 
   src.start(0);
   const renderedBuffer = await offlineCtx.startRendering();
 
   // Convert to WAV
   function bufferToWave(abuffer, len) {
-    const numOfChan = abuffer.numberOfChannels,
-      length = len * numOfChan * 2 + 44,
-      buffer = new ArrayBuffer(length),
-      view = new DataView(buffer),
-      channels = [],
-      sampleRate = abuffer.sampleRate;
+    let numOfChan = abuffer.numberOfChannels,
+        length = len * numOfChan * 2 + 44,
+        buffer = new ArrayBuffer(length),
+        view = new DataView(buffer),
+        channels = [], i, sample,
+        offset = 0, pos = 0;
 
-    let offset = 0, pos = 0;
-
-    function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-    function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
-
-    // WAV header
+    // write WAV header
     setUint32(0x46464952); // "RIFF"
-    setUint32(length - 8);
+    setUint32(length - 8); 
     setUint32(0x45564157); // "WAVE"
+
     setUint32(0x20746d66); // "fmt " chunk
     setUint32(16);
     setUint16(1);
     setUint16(numOfChan);
-    setUint32(sampleRate);
-    setUint32(sampleRate * 2 * numOfChan);
+    setUint32(abuffer.sampleRate);
+    setUint32(abuffer.sampleRate * 2 * numOfChan);
     setUint16(numOfChan * 2);
     setUint16(16);
-    setUint32(0x61746164); // "data"
+
+    setUint32(0x61746164); // "data" chunk
     setUint32(length - pos - 4);
 
-    // Write interleaved data
-    for(let i=0;i<abuffer.length;i++){
-      for(let ch=0;ch<numOfChan;ch++){
-        let sample = abuffer.getChannelData(ch)[i];
-        sample = Math.max(-1, Math.min(1, sample));
-        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+    for(i=0;i<numOfChan;i++) channels.push(abuffer.getChannelData(i));
+
+    while(pos < length) {
+      for(i=0;i<numOfChan;i++){
+        sample = Math.max(-1, Math.min(1, channels[i][offset]));
+        view.setInt16(pos, sample<0 ? sample*0x8000 : sample*0x7FFF, true);
         pos += 2;
       }
+      offset++;
     }
-    return new Blob([view], { type: "audio/wav" });
+
+    function setUint16(data){ view.setUint16(pos,data,true); pos+=2; }
+    function setUint32(data){ view.setUint32(pos,data,true); pos+=4; }
+
+    return new Blob([buffer], {type:"audio/wav"});
   }
 
-  const wavBlob = bufferToWave(renderedBuffer, renderedBuffer.length);
-  const url = URL.createObjectURL(wavBlob);
+  const blob = bufferToWave(renderedBuffer, renderedBuffer.length);
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "LoFiSlowed.wav";
+  a.download = "LoFi_Slowed_Reverb.wav";
   a.click();
-  URL.revokeObjectURL(url);
-  alert("✅ Rendered and downloaded!");
 });
 </script>
 </body>
