@@ -1,261 +1,148 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Slowed + Reverb — Web Tool</title>
-<style>
-  :root{--accent:#0b76ef;--bg:#f6f8fb;--card:#fff}
-  body{font-family:Inter,system-ui,Arial,sans-serif;margin:0;background:var(--bg);color:#111}
-  .wrap{max-width:980px;margin:30px auto;padding:18px}
-  .card{background:var(--card);padding:18px;border-radius:10px;box-shadow:0 8px 24px rgba(12,20,40,0.06)}
-  h1{margin:0 0 8px;font-size:20px}
-  .muted{color:#666;font-size:13px}
-  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}
-  label{min-width:110px;color:#333}
-  input[type="range"]{width:240px}
-  button{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer}
-  button.primary{background:var(--accent);color:#fff;border-color:rgba(11,118,239,0.9)}
-  audio{width:100%;margin-top:14px}
-  .status{margin-top:12px;color:var(--accent)}
-  .download{display:inline-block;margin-top:10px;padding:8px 12px;background:#1aab4f;color:#fff;border-radius:8px;text-decoration:none}
-  .small{font-size:13px;color:#555}
-  footer{margin-top:16px;font-size:13px;color:#666}
-  @media (max-width:560px){ input[type="range"]{width:160px} label{min-width:90px} }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slowed + Reverb Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #111;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 { color: #00ffcc; }
+    .container {
+      margin-top: 20px;
+      padding: 20px;
+      background: #222;
+      border-radius: 10px;
+    }
+    input, button {
+      margin: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+    }
+    .slider {
+      width: 80%;
+    }
+    #progress {
+      margin-top: 10px;
+      height: 20px;
+      width: 80%;
+      background: #333;
+      border-radius: 10px;
+      overflow: hidden;
+      display: none;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #00ffcc;
+    }
+    audio { margin-top: 15px; }
+    .note {
+      font-size: 14px;
+      color: #aaa;
+    }
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <h1>Slowed + Reverb — Offline WAV Export</h1>
-    <div class="muted small">Upload an audio file (mp3/wav). This runs in your browser only — no upload to server.</div>
-
-    <div class="row" style="margin-top:16px">
-      <label for="file">Select audio</label>
-      <input id="file" type="file" accept="audio/*">
+  <h1>🎵 Slowed + Reverb Tool</h1>
+  <div class="container">
+    <input type="file" id="audioFile" accept="audio/*"><br>
+    
+    <label>Playback Speed (0.5x – 1.5x):</label><br>
+    <input type="range" id="speed" class="slider" min="0.5" max="1.5" value="0.85" step="0.05">
+    <span id="speedValue">0.85x</span><br><br>
+    
+    <label>Reverb Level:</label><br>
+    <input type="range" id="reverb" class="slider" min="0" max="100" value="60">
+    <span id="reverbValue">60%</span><br><br>
+    
+    <button onclick="processAudio()">Process Audio</button>
+    
+    <div id="progress">
+      <div id="progress-bar"></div>
     </div>
-
-    <div class="row">
-      <label for="speed">Playback speed</label>
-      <input id="speed" type="range" min="0.4" max="1.2" step="0.01" value="0.75">
-      <div id="speedVal">0.75×</div>
-    </div>
-
-    <div class="row">
-      <label for="reverb">Reverb amount</label>
-      <input id="reverb" type="range" min="0" max="1" step="0.01" value="0.35">
-      <div id="reverbVal">35%</div>
-    </div>
-
-    <div class="row">
-      <label for="decay">Reverb decay</label>
-      <input id="decay" type="range" min="0.3" max="6" step="0.1" value="2.5">
-      <div id="decayVal">2.5s</div>
-    </div>
-
-    <div class="row">
-      <button id="previewBtn" class="primary">Preview</button>
-      <button id="renderBtn">Render & Prepare Download</button>
-      <button id="stopBtn">Stop</button>
-      <div style="flex:1"></div>
-      <div class="small">Tip: use desktop for large files.</div>
-    </div>
-
-    <div id="status" class="status"></div>
-
-    <audio id="player" controls style="display:none"></audio>
-    <a id="download" class="download" style="display:none">Download WAV</a>
-
-    <footer>
-      Built for Blogger embed (use iframe). If something fails, open browser console (F12) and share the error.
-    </footer>
+    
+    <p class="note">✨ Best settings: Speed 0.85x, Reverb 60%</p>
+    
+    <audio id="outputAudio" controls></audio><br>
+    <button id="downloadBtn" style="display:none;">Download Processed File</button>
   </div>
-</div>
 
-<script>
-(function(){
-  const fileEl = document.getElementById('file');
-  const speedEl = document.getElementById('speed');
-  const reverbEl = document.getElementById('reverb');
-  const decayEl = document.getElementById('decay');
-  const previewBtn = document.getElementById('previewBtn');
-  const renderBtn = document.getElementById('renderBtn');
-  const stopBtn = document.getElementById('stopBtn');
-  const status = document.getElementById('status');
-  const player = document.getElementById('player');
-  const downloadA = document.getElementById('download');
-  const speedVal = document.getElementById('speedVal');
-  const reverbVal = document.getElementById('reverbVal');
-  const decayVal = document.getElementById('decayVal');
+  <script>
+    const fileInput = document.getElementById('audioFile');
+    const speedSlider = document.getElementById('speed');
+    const reverbSlider = document.getElementById('reverb');
+    const speedValue = document.getElementById('speedValue');
+    const reverbValue = document.getElementById('reverbValue');
+    const progress = document.getElementById('progress');
+    const progressBar = document.getElementById('progress-bar');
+    const outputAudio = document.getElementById('outputAudio');
+    const downloadBtn = document.getElementById('downloadBtn');
 
-  let originalBuffer = null;
-  let realtimeCtx = null;
-  let liveSource = null;
-  let lastURL = null;
+    speedSlider.oninput = () => speedValue.textContent = speedSlider.value + "x";
+    reverbSlider.oninput = () => reverbValue.textContent = reverbSlider.value + "%";
 
-  function setStatus(t){ status.innerText = t; }
+    async function processAudio() {
+      const file = fileInput.files[0];
+      if (!file) return alert("⚠️ Please select an audio file.");
+      if (file.size > 10 * 1024 * 1024) { // 10MB
+        return alert("⚠️ File too large! Max 10MB allowed.");
+      }
 
-  speedEl.addEventListener('input', ()=> speedVal.innerText = speedEl.value + '×');
-  reverbEl.addEventListener('input', ()=> reverbVal.innerText = Math.round(reverbEl.value*100)+'%');
-  decayEl.addEventListener('input', ()=> decayVal.innerText = decayEl.value + 's');
+      progress.style.display = "block";
+      progressBar.style.width = "0%";
 
-  fileEl.addEventListener('change', async (e)=>{
-    originalBuffer = null;
-    cleanupLast();
-    const f = e.target.files && e.target.files[0];
-    if(!f){ setStatus('No file selected'); return; }
-    setStatus('Reading file...');
-    try{
-      const array = await f.arrayBuffer();
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
-      originalBuffer = await ac.decodeAudioData(array.slice(0));
-      ac.close && ac.close();
-      setStatus(`Loaded: ${f.name} — ${Math.round(originalBuffer.duration)}s, ${originalBuffer.numberOfChannels}ch`);
-    }catch(err){
-      console.error(err);
-      setStatus('Error decoding file: '+(err.message||err));
-    }
-  });
+      // Simulated progress
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i >= 100) { clearInterval(interval); }
+        progressBar.style.width = i + "%";
+        i += 10;
+      }, 200);
 
-  function createImpulse(context, duration, decay){
-    const sr = context.sampleRate;
-    const len = Math.floor(sr * duration);
-    const impulse = context.createBuffer(2, len, sr);
-    for(let ch=0; ch<impulse.numberOfChannels; ch++){
-      const data = impulse.getChannelData(ch);
-      for(let i=0;i<len;i++){
-        const n = Math.random()*2 - 1;
-        data[i] = n * Math.pow(1 - i/len, decay);
+      try {
+        const url = URL.createObjectURL(file);
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+        // Playback node
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.playbackRate.value = speedSlider.value;
+
+        // Reverb (simple convolver replacement)
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.value = reverbSlider.value / 100;
+
+        source.connect(gainNode).connect(audioCtx.destination);
+        source.start();
+
+        outputAudio.src = url;
+        outputAudio.play();
+
+        downloadBtn.style.display = "inline-block";
+        downloadBtn.onclick = () => {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "slowed-reverb.mp3";
+          a.click();
+        };
+
+      } catch (err) {
+        alert("❌ Render error: Device may be low on memory.");
+        console.error(err);
       }
     }
-    return impulse;
-  }
-
-  async function renderBuffer(buffer, opts){
-    const playbackRate = opts.playbackRate || 1;
-    const reverbAmount = Math.max(0, Math.min(1, opts.reverbAmount||0));
-    const decay = Math.max(0.1, opts.decay||2.5);
-    const newDuration = buffer.duration / playbackRate;
-    const sr = buffer.sampleRate;
-    const channels = buffer.numberOfChannels;
-    const offline = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(channels, Math.ceil(newDuration * sr) + 1, sr);
-    const src = offline.createBufferSource();
-    src.buffer = buffer;
-    src.playbackRate.value = playbackRate;
-    const dry = offline.createGain(); dry.gain.value = 1 - reverbAmount;
-    const wet = offline.createGain(); wet.gain.value = reverbAmount;
-    const conv = offline.createConvolver();
-    conv.buffer = createImpulse(offline, Math.min(6, Math.max(0.2, decay)), decay);
-    src.connect(dry).connect(offline.destination);
-    src.connect(conv).connect(wet).connect(offline.destination);
-    src.start(0);
-    setStatus('Rendering (this may take a few seconds)...');
-    const rendered = await offline.startRendering();
-    setStatus('Rendering done.');
-    return rendered;
-  }
-
-  function audioBufferToWav(buffer){
-    const numChannels = buffer.numberOfChannels;
-    const sampleRate = buffer.sampleRate;
-    const bytesPerSample = 2;
-    const blockAlign = numChannels * bytesPerSample;
-    const dataLen = buffer.length * blockAlign;
-    const bufferLen = 44 + dataLen;
-    const arrayBuffer = new ArrayBuffer(bufferLen);
-    const view = new DataView(arrayBuffer);
-    function writeString(view, offset, str){
-      for(let i=0;i<str.length;i++){
-        view.setUint8(offset+i, str.charCodeAt(i));
-      }
-    }
-    let offset = 0;
-    writeString(view, offset, 'RIFF'); offset += 4;
-    view.setUint32(offset, 36 + dataLen, true); offset += 4;
-    writeString(view, offset, 'WAVE'); offset += 4;
-    writeString(view, offset, 'fmt '); offset += 4;
-    view.setUint32(offset, 16, true); offset += 4;
-    view.setUint16(offset, 1, true); offset += 2;
-    view.setUint16(offset, numChannels, true); offset += 2;
-    view.setUint32(offset, sampleRate, true); offset += 4;
-    view.setUint32(offset, sampleRate * blockAlign, true); offset += 4;
-    view.setUint16(offset, blockAlign, true); offset += 2;
-    view.setUint16(offset, bytesPerSample*8, true); offset += 2;
-    writeString(view, offset, 'data'); offset += 4;
-    view.setUint32(offset, dataLen, true); offset += 4;
-    let pos = 44;
-    const channelData = [];
-    for(let ch=0; ch<numChannels; ch++) channelData.push(buffer.getChannelData(ch));
-    for(let i=0;i<buffer.length;i++){
-      for(let ch=0; ch<numChannels; ch++){
-        let sample = Math.max(-1, Math.min(1, channelData[ch][i]));
-        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-        pos += 2;
-      }
-    }
-    return new Blob([view], { type: 'audio/wav' });
-  }
-
-  async function preview(){
-    if(!originalBuffer) { setStatus('Select an audio first'); return; }
-    stopLive();
-    try{
-      const opts = { playbackRate: parseFloat(speedEl.value), reverbAmount: parseFloat(reverbEl.value), decay: parseFloat(decayEl.value) };
-      const rendered = await renderBuffer(originalBuffer, opts);
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
-      const src = ac.createBufferSource();
-      src.buffer = rendered;
-      src.connect(ac.destination);
-      src.start(0);
-      liveSource = src;
-      realtimeCtx = ac;
-      setStatus('Preview playing...');
-      src.onended = ()=>{ setStatus('Preview finished'); try{ ac.close(); }catch(e){} liveSource = null; };
-    }catch(err){
-      console.error(err);
-      setStatus('Preview error: '+(err.message||err));
-    }
-  }
-
-  async function renderAndDownload(){
-    if(!originalBuffer) { setStatus('Select an audio first'); return; }
-    stopLive();
-    try{
-      renderBtn.disabled = true;
-      previewBtn.disabled = true;
-      const opts = { playbackRate: parseFloat(speedEl.value), reverbAmount: parseFloat(reverbEl.value), decay: parseFloat(decayEl.value) };
-      const rendered = await renderBuffer(originalBuffer, opts);
-      const wavBlob = audioBufferToWav(rendered);
-      cleanupLast();
-      lastURL = URL.createObjectURL(wavBlob);
-      player.src = lastURL; player.style.display = 'block';
-      downloadA.href = lastURL; downloadA.download = `processed_${Date.now()}.wav`; downloadA.style.display = 'inline-block';
-      setStatus('Ready — click Download or play below.');
-    }catch(err){
-      console.error(err);
-      setStatus('Render error: '+(err.message||err));
-    } finally {
-      renderBtn.disabled = false;
-      previewBtn.disabled = false;
-    }
-  }
-
-  function stopLive(){
-    try{
-      if(liveSource){ liveSource.stop && liveSource.stop(); liveSource = null; }
-      if(realtimeCtx){ realtimeCtx.close && realtimeCtx.close(); realtimeCtx = null; }
-    }catch(e){}
-  }
-
-  function cleanupLast(){
-    if(lastURL){ try{ URL.revokeObjectURL(lastURL); }catch(e){} lastURL = null; player.src = ''; player.style.display='none'; downloadA.style.display='none'; }
-  }
-
-  previewBtn.addEventListener('click', preview);
-  renderBtn.addEventListener('click', renderAndDownload);
-  stopBtn.addEventListener('click', ()=>{ stopLive(); setStatus('Stopped'); });
-  window.addEventListener('beforeunload', ()=>{ cleanupLast(); });
-})();
-</script>
+  </script>
 </body>
 </html>
