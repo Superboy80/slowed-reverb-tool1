@@ -4,24 +4,25 @@
 <meta charset="UTF-8">
 <title>Pro LoFi Slowed + Reverb + Bass Tool</title>
 <style>
-  body { background:#121212; color:white; font-family:Arial, sans-serif; text-align:center; padding:20px; }
+  body { background:#121212; color:white; font-family:Arial; text-align:center; padding:20px; }
   .control { margin:15px; }
   input[type=range] { width:300px; }
   button { margin:5px; padding:10px 20px; font-size:16px; cursor:pointer; }
-  #status { margin:10px; font-weight:bold; }
-  #canvas { margin-top:20px; width: 100%; height: 100px; background: #222; display:block; }
+  #progress { width:300px; }
 </style>
 </head>
 <body>
 <h1>🎶 LoFi Slowed + Reverb + Bass Tool</h1>
 
-<input type="file" id="fileInput" accept="audio/*"><br>
-<div id="status">No file loaded.</div>
+<input type="file" id="fileInput" accept="audio/*"><br><br>
 
 <button id="playBtn">▶ Play</button>
 <button id="stopBtn">⏹ Stop</button>
 <button id="startOverBtn">🔄 Start Over</button>
-<button id="downloadBtn">💾 Render & Download</button>
+<button id="downloadBtn">💾 Render & Download</button><br><br>
+
+<input type="range" id="progress" min="0" max="100" value="0"><br>
+<span id="currentTime">0:00</span> / <span id="duration">0:00</span>
 
 <div class="control">
   <label>Speed: <span id="speedVal">1.0</span>x</label><br>
@@ -34,68 +35,61 @@
 </div>
 
 <div class="control">
-  <label>Bass Boost: <span id="bassVal">0</span>dB</label><br>
+  <label>Bass Boost: <span id="bassVal">0.0</span></label><br>
   <input type="range" id="bassControl" min="0" max="20" value="0" step="1">
 </div>
 
 <div class="control">
   <label>Volume: <span id="volumeVal">100</span>%</label><br>
-  <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1">
+  <input type="range" id="volumeControl" min="0" max="100" value="100" step="1">
 </div>
-
-<div class="control">
-  <label>Progress: <span id="progressVal">0:00 / 0:00</span></label><br>
-  <input type="range" id="progressControl" min="0" max="100" value="0" step="0.1">
-</div>
-
-<canvas id="canvas"></canvas>
 
 <script>
 let audioCtx, audioBuffer, source;
 let convolver, bassFilter, wetGain, dryGain, masterGain, gainNode;
-let analyser, dataArray, animationId;
-let startTime = 0, pausedAt = 0;
+let animationId;
+let pausedAt = 0, startTime = 0;
 
-// Load audio
+// Upload audio
 document.getElementById("fileInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  resetAudio();
-  document.getElementById("status").textContent = "🔄 Loading...";
+  document.body.style.cursor = "wait";
   const arrayBuffer = await file.arrayBuffer();
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  document.getElementById("status").textContent = "✅ Audio loaded! Ready to play.";
-  setupVisualizer();
-  updateProgress();
+  pausedAt = 0;
+  stopAudio();
+  document.getElementById("progress").value = 0;
+  document.getElementById("currentTime").textContent = "0:00";
+  document.getElementById("duration").textContent = Math.floor(audioBuffer.duration/60)+":"+String(Math.floor(audioBuffer.duration%60)).padStart(2,'0');
+  document.body.style.cursor = "default";
+  alert("✅ Audio loaded! Now press Play.");
 });
 
-// Reset previous audio
-function resetAudio() {
-  if (source) source.stop(0);
-  if (animationId) cancelAnimationFrame(animationId);
-  source = null;
-  audioBuffer = null;
-  pausedAt = 0;
-  document.getElementById("progressControl").value = 0;
-  document.getElementById("progressVal").textContent = "0:00 / 0:00";
-}
-
-// Reverb impulse
+// Reverb IR
 function createReverbIR(ctx) {
   let length = ctx.sampleRate * 3;
   let impulse = ctx.createBuffer(2, length, ctx.sampleRate);
   for (let c = 0; c < 2; c++) {
     let channel = impulse.getChannelData(c);
-    for (let i = 0; i < length; i++) {
-      channel[i] = (Math.random() * 2 - 1) * (1 - i/length);
-    }
+    for (let i = 0; i < length; i++) channel[i] = (Math.random()*2-1)*(1-i/length);
   }
   return impulse;
 }
 
-// Create audio chain
-function createAudioGraph(offset=0) {
+// Stop audio
+function stopAudio() {
+  if (source) {
+    try { source.stop(); } catch(e){}
+    source.disconnect();
+    source = null;
+  }
+  if (animationId) cancelAnimationFrame(animationId);
+}
+
+// Create audio graph
+function createAudioGraph(start=0) {
   source = audioCtx.createBufferSource();
   source.buffer = audioBuffer;
 
@@ -110,7 +104,9 @@ function createAudioGraph(offset=0) {
   wetGain = audioCtx.createGain();
   dryGain = audioCtx.createGain();
   masterGain = audioCtx.createGain();
+
   gainNode = audioCtx.createGain();
+  gainNode.gain.value = parseFloat(document.getElementById("volumeControl").value)/100;
 
   source.connect(bassFilter);
   bassFilter.connect(dryGain);
@@ -124,104 +120,73 @@ function createAudioGraph(offset=0) {
   dryGain.gain.value = 1;
   wetGain.gain.value = parseFloat(document.getElementById("reverbControl").value);
   source.playbackRate.value = parseFloat(document.getElementById("speedControl").value);
-  gainNode.gain.value = parseFloat(document.getElementById("volumeControl").value);
 
-  source.start(0, offset);
-  startTime = audioCtx.currentTime - offset;
+  source.start(0, start);
+  startTime = audioCtx.currentTime - start;
 
-  source.onended = () => { cancelAnimationFrame(animationId); };
-  drawVisualizer();
+  updateProgress();
 }
 
-// Play / Stop / Start Over
+// Update progress bar
+function updateProgress() {
+  if(!source) return;
+  let current = audioCtx.currentTime - startTime;
+  document.getElementById("progress").value = (current/audioBuffer.duration)*100;
+  document.getElementById("currentTime").textContent = Math.floor(current/60)+":"+String(Math.floor(current%60)).padStart(2,'0');
+  animationId = requestAnimationFrame(updateProgress);
+}
+
+// Event listeners
 document.getElementById("playBtn").addEventListener("click", () => {
   if (!audioBuffer) return alert("Upload audio first!");
   if (audioCtx.state === "suspended") audioCtx.resume();
+  stopAudio();
   createAudioGraph(pausedAt);
 });
 
 document.getElementById("stopBtn").addEventListener("click", () => {
-  if (source) {
-    pausedAt = audioCtx.currentTime - startTime;
-    source.stop(0);
-  }
+  pausedAt = audioCtx.currentTime - startTime;
+  stopAudio();
 });
 
 document.getElementById("startOverBtn").addEventListener("click", () => {
   pausedAt = 0;
-  if (source) source.stop(0);
+  stopAudio();
   createAudioGraph(0);
 });
 
-// Slider events
+document.getElementById("progress").addEventListener("input", e => {
+  if(!audioBuffer) return;
+  pausedAt = (parseFloat(e.target.value)/100)*audioBuffer.duration;
+  stopAudio();
+  createAudioGraph(pausedAt);
+});
+
 document.getElementById("speedControl").addEventListener("input", e => {
-  if (source) source.playbackRate.value = parseFloat(e.target.value);
+  if(source) source.playbackRate.value = parseFloat(e.target.value);
   document.getElementById("speedVal").textContent = e.target.value;
 });
+
 document.getElementById("reverbControl").addEventListener("input", e => {
-  if (wetGain) wetGain.gain.value = parseFloat(e.target.value);
+  if(wetGain) wetGain.gain.value = parseFloat(e.target.value);
   document.getElementById("reverbVal").textContent = e.target.value;
 });
+
 document.getElementById("bassControl").addEventListener("input", e => {
-  if (bassFilter) bassFilter.gain.value = parseFloat(e.target.value);
+  if(bassFilter) bassFilter.gain.value = parseFloat(e.target.value);
   document.getElementById("bassVal").textContent = e.target.value;
 });
+
 document.getElementById("volumeControl").addEventListener("input", e => {
-  if (gainNode) gainNode.gain.value = parseFloat(e.target.value);
-  document.getElementById("volumeVal").textContent = Math.round(e.target.value*100);
-});
-document.getElementById("progressControl").addEventListener("input", e => {
-  if (!audioBuffer) return;
-  let seekTime = audioBuffer.duration * (parseFloat(e.target.value)/100);
-  if (source) source.stop(0);
-  pausedAt = seekTime;
-  createAudioGraph(seekTime);
+  if(gainNode) gainNode.gain.value = parseFloat(e.target.value)/100;
+  document.getElementById("volumeVal").textContent = e.target.value;
 });
 
-// Progress updater
-function updateProgress() {
-  if (!audioBuffer) return;
-  let current = source ? audioCtx.currentTime - startTime : pausedAt;
-  let total = audioBuffer.duration;
-  document.getElementById("progressControl").value = (current/total)*100;
-  document.getElementById("progressVal").textContent = `${formatTime(current)} / ${formatTime(total)}`;
-  requestAnimationFrame(updateProgress);
-}
-function formatTime(t) {
-  t = Math.max(0, Math.min(t, audioBuffer.duration || t));
-  let m = Math.floor(t/60), s = Math.floor(t%60);
-  return `${m}:${s<10?'0':''}${s}`;
-}
-
-// Visualizer
-function setupVisualizer() {
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 256;
-  source && source.connect(analyser);
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-}
-function drawVisualizer() {
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-  analyser && analyser.getByteTimeDomainData(dataArray);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#0f0";
-  analyser && analyser.getByteTimeDomainData(dataArray);
-  let sliceWidth = canvas.width / dataArray.length;
-  let x = 0;
-  for(let i=0;i<dataArray.length;i++){
-    let v = dataArray[i]/128.0;
-    let y = v * canvas.height/2;
-    ctx.fillRect(x, canvas.height/2 - y/2, 2, y);
-    x += sliceWidth;
-  }
-  animationId = requestAnimationFrame(drawVisualizer);
-}
-
-// Render & Download (same as before)
+// Render & Download
 document.getElementById("downloadBtn").addEventListener("click", async () => {
   if (!audioBuffer) return alert("Upload audio first!");
   const offlineCtx = new OfflineAudioContext(2, audioBuffer.length, audioBuffer.sampleRate);
+
   const src = offlineCtx.createBufferSource();
   src.buffer = audioBuffer;
 
@@ -257,33 +222,16 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
   const renderedBuffer = await offlineCtx.startRendering();
 
   function bufferToWave(abuffer, len) {
-    const numOfChan = abuffer.numberOfChannels, length = len*numOfChan*2+44, buffer = new ArrayBuffer(length), view = new DataView(buffer), channels=[], sampleRate=abuffer.sampleRate;
-    let offset=0,pos=0;
-    function setUint16(data){ view.setUint16(pos,data,true); pos+=2;}
-    function setUint32(data){ view.setUint32(pos,data,true); pos+=4;}
-    setUint32(0x46464952); setUint32(length-8); setUint32(0x45564157); setUint32(0x20746d66);
-    setUint32(16); setUint16(1); setUint16(numOfChan); setUint32(sampleRate); setUint32(sampleRate*2*numOfChan);
-    setUint16(numOfChan*2); setUint16(16); setUint32(0x61746164); setUint32(length-pos-4);
-    for(let i=0;i<abuffer.length;i++){
-      for(let ch=0;ch<numOfChan;ch++){
-        let sample=abuffer.getChannelData(ch)[i];
-        sample=Math.max(-1,Math.min(1,sample));
-        view.setInt16(pos,sample<0?sample*0x8000:sample*0x7FFF,true);
-        pos+=2;
-      }
-    }
-    return new Blob([view],{type:"audio/wav"});
-  }
+    const numOfChan = abuffer.numberOfChannels,
+      length = len * numOfChan * 2 + 44,
+      buffer = new ArrayBuffer(length),
+      view = new DataView(buffer),
+      channels = [],
+      sampleRate = abuffer.sampleRate;
 
-  const wavBlob = bufferToWave(renderedBuffer, renderedBuffer.length);
-  const url = URL.createObjectURL(wavBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "LoFiSlowed.wav";
-  a.click();
-  URL.revokeObjectURL(url);
-  alert("✅ Rendered and downloaded!");
-});
-</script>
-</body>
-</html>
+    let offset = 0, pos = 0;
+
+    function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+    function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+    setUint32(0x46464952); setUint32(length-8
