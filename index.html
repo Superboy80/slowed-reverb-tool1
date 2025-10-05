@@ -70,6 +70,11 @@
             margin-bottom: 5px;
         }
 
+        .form-label {
+            color: #333;
+            font-weight: 600;
+        }
+
         .form-range {
             flex: 1;
             height: 8px;
@@ -119,6 +124,7 @@
             padding: 5px;
             text-align: center;
             font-size: 14px;
+            background: #fff;
         }
 
         /* Mobile Optimization */
@@ -161,12 +167,12 @@
                 <div class="card shadow-lg">
                     <div class="card-body">
                         <div class="mb-3">
-                            <label for="audioFile" class="form-label fw-bold">Upload Audio File (MP3/WAV, max 100MB) 🎵</label>
+                            <label for="audioFile" class="form-label">Upload Audio File (MP3/WAV, max 100MB) 🎵</label>
                             <input type="file" class="form-control" id="audioFile" accept="audio/*">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Slow Speed (0.5x to 1x) 🐌</label>
+                            <label class="form-label">Slow Speed (0.5x to 1x) 🐌</label>
                             <div class="slider-container">
                                 <input type="range" class="form-range" id="slowSpeed" min="0.5" max="1" step="0.05" value="0.8">
                                 <span class="value-display" id="speedValue">0.8x</span>
@@ -175,7 +181,7 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Reverb Time (1-5s, Smooth Hall) 🌟</label>
+                            <label class="form-label">Reverb Time (1-5s, Smooth Hall) 🌟</label>
                             <div class="slider-container">
                                 <input type="range" class="form-range" id="reverbTime" min="1" max="5" step="0.5" value="2">
                                 <span class="value-display" id="reverbValue">2s</span>
@@ -184,7 +190,7 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Bass Boost (0-20dB, Deep Lows) 🔥</label>
+                            <label class="form-label">Bass Boost (0-20dB, Deep Lows) 🔥</label>
                             <div class="slider-container">
                                 <input type="range" class="form-range" id="bassBoost" min="0" max="20" step="1" value="10">
                                 <span class="value-display" id="bassValue">10dB</span>
@@ -214,7 +220,7 @@
     <script>
         let audioContext, source, bassFilter, reverb, gain, originalBuffer;
         let isPlaying = false;
-        let reverbTimeout; // For debounce
+        let reverbTimeout;
 
         document.addEventListener('DOMContentLoaded', function() {
             const audioFileInput = document.getElementById('audioFile');
@@ -244,7 +250,7 @@
 
             function syncFromNumber(numInput, slider, valueSpan, suffix) {
                 let val = parseFloat(numInput.value);
-                if (isNaN(val)) val = slider.value;
+                if (isNaN(val)) val = parseFloat(slider.value);
                 val = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), val));
                 numInput.value = val;
                 slider.value = val;
@@ -252,10 +258,12 @@
             }
 
             // Event listeners for sliders and numbers
-            [slowSpeed, reverbTime, bassBoost].forEach((slider, index) => {
-                const numInputs = [slowSpeedNum, reverbTimeNum, bassBoostNum];
-                const valueSpans = [speedValue, reverbValue, bassValue];
-                const suffixes = ['x', 's', 'dB'];
+            const sliders = [slowSpeed, reverbTime, bassBoost];
+            const numInputs = [slowSpeedNum, reverbTimeNum, bassBoostNum];
+            const valueSpans = [speedValue, reverbValue, bassValue];
+            const suffixes = ['x', 's', 'dB'];
+
+            sliders.forEach((slider, index) => {
                 const numInput = numInputs[index];
                 const valueSpan = valueSpans[index];
                 const suffix = suffixes[index];
@@ -263,15 +271,19 @@
                 slider.addEventListener('input', () => {
                     updateSliderAndValue(slider, numInput, valueSpan, suffix);
                     updateRealTimeEffects();
-                    if (reverbTimeout) clearTimeout(reverbTimeout);
-                    reverbTimeout = setTimeout(updateReverbImpulse, 200); // Debounce reverb
+                    if (index === 1) { // Reverb
+                        if (reverbTimeout) clearTimeout(reverbTimeout);
+                        reverbTimeout = setTimeout(updateReverbImpulse, 200);
+                    }
                 });
 
                 numInput.addEventListener('input', () => {
                     syncFromNumber(numInput, slider, valueSpan, suffix);
                     updateRealTimeEffects();
-                    if (reverbTimeout) clearTimeout(reverbTimeout);
-                    reverbTimeout = setTimeout(updateReverbImpulse, 200);
+                    if (index === 1) {
+                        if (reverbTimeout) clearTimeout(reverbTimeout);
+                        reverbTimeout = setTimeout(updateReverbImpulse, 200);
+                    }
                 });
             });
 
@@ -287,7 +299,7 @@
                     try {
                         originalBuffer = await loadAudio(file);
                         setupRealTimePreview(originalBuffer);
-                        preview.src = URL.createObjectURL(file); // Fallback visual
+                        preview.src = URL.createObjectURL(file);
                         preview.style.display = 'block';
                         liveHint.style.display = 'block';
                         hideError();
@@ -299,12 +311,14 @@
 
             // Real-time preview setup
             function setupRealTimePreview(buffer) {
-                if (audioContext) audioContext.close();
+                if (audioContext) {
+                    audioContext.close();
+                }
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
                 source = audioContext.createBufferSource();
                 source.buffer = buffer;
-                source.loop = true; // Loop for preview tweaking
+                source.loop = true;
 
                 bassFilter = audioContext.createBiquadFilter();
                 bassFilter.type = 'lowshelf';
@@ -314,18 +328,17 @@
                 gain = audioContext.createGain();
                 gain.gain.value = 0.7;
 
-                // Chain
                 source.connect(bassFilter);
                 bassFilter.connect(reverb);
                 reverb.connect(gain);
                 gain.connect(audioContext.destination);
 
-                // Initial effects
                 updateRealTimeEffects();
                 updateReverbImpulse();
 
-                // Preview audio element sync (for controls)
+                // Sync with preview controls
                 preview.onplay = () => {
+                    if (audioContext.state === 'suspended') audioContext.resume();
                     if (!isPlaying) {
                         source.start(0);
                         isPlaying = true;
@@ -337,17 +350,12 @@
                         isPlaying = false;
                     }
                 };
-                preview.onended = () => {
-                    if (isPlaying) {
-                        source.stop();
-                        isPlaying = false;
-                    }
-                };
+                preview.onended = preview.onpause;
             }
 
             function updateRealTimeEffects() {
                 if (!source || !bassFilter) return;
-                source.playbackRate.value = 1 / parseFloat(slowSpeed.value); // Slowed (lowers pitch naturally)
+                source.playbackRate.value = 1 / parseFloat(slowSpeed.value);
                 bassFilter.gain.value = parseFloat(bassBoost.value);
             }
 
@@ -359,7 +367,6 @@
                 const reverbBuffer = audioContext.createBuffer(1, reverbLength, sampleRate);
                 const reverbData = reverbBuffer.getChannelData(0);
                 
-                // Smooth impulse (same as before, but optimized)
                 reverbData[0] = 1.0;
                 let decay = 1.0;
                 const echoDelays = [0.05, 0.1, 0.2, 0.3, 0.5];
@@ -369,4 +376,27 @@
                         const echoAmp = decay * 0.3;
                         reverbData[delaySamples] += echoAmp;
                         for (let j = 1; j < 100 && delaySamples + j < reverbLength; j++) {
-                            reverbData[delaySamples
+                            reverbData[delaySamples + j] += echoAmp * Math.exp(-j / (sampleRate * 0.1));
+                        }
+                        decay *= 0.7;
+                    }
+                }
+                for (let i = 1; i < reverbLength; i++) {
+                    if (reverbData[i] === 0) {
+                        reverbData[i] = (Math.random() * 2 - 1) * 0.01 * Math.pow(1 - i / reverbLength, 2);
+                    }
+                }
+                reverb.buffer = reverbBuffer;
+            }
+
+            // Process button for download
+            processBtn.addEventListener('click', async function() {
+                if (!originalBuffer) {
+                    showError('Please upload a file first! 😅');
+                    return;
+                }
+                showProgress(0);
+                try {
+                    const processedBuffer = await applyEffects(originalBuffer, parseFloat(slowSpeed.value), parseFloat(reverbTime.value), parseFloat(bassBoost.value));
+                    const processedBlob = bufferToWave(processedBuffer, originalBuffer.sampleRate);
+                    const url = URL.createObjectURL(process
