@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%); /* Cute pink gradient */
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
             min-height: 100vh;
             font-family: 'Poppins', sans-serif;
             color: #333;
@@ -57,7 +57,6 @@
             border-radius: 15px;
         }
 
-        /* Custom Smooth Sliders */
         .slider-container {
             display: flex;
             align-items: center;
@@ -89,7 +88,7 @@
             cursor: pointer;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             border: 2px solid #667eea;
-            transition: all 0.2s ease; /* Smooth movement */
+            transition: all 0.2s ease;
         }
 
         .form-range::-moz-range-thumb {
@@ -104,7 +103,7 @@
         }
 
         .form-range:hover {
-            background: linear-gradient(135deg, #ff758f, #ff7eb3); /* Hover effect for smoothness */
+            background: linear-gradient(135deg, #ff758f, #ff7eb3);
         }
 
         .value-display {
@@ -130,7 +129,6 @@
             outline: none;
         }
 
-        /* Preview Button */
         #previewBtn {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -149,7 +147,6 @@
             height: 1rem;
         }
 
-        /* Mobile */
         @media (max-width: 768px) {
             h1 { font-size: 1.8rem; }
             .card-body { padding: 1rem; }
@@ -208,7 +205,7 @@
                             </div>
                         </div>
                         
-                        <button class="btn btn-primary w-100 mb-3" id="previewBtn" style="display: none;">▶️ Play Preview (Real-Time Effects)</button>
+                        <button class="btn w-100 mb-3" id="previewBtn" style="display: none;">▶️ Play Preview (Real-Time Effects)</button>
                         <div id="previewStatus" style="display: none;"></div>
                         
                         <button class="btn btn-primary w-100 mb-3" id="processBtn" disabled>Apply Full Effects & Download 💾</button>
@@ -231,7 +228,7 @@
         let audioContext, source, bassFilter, reverb, gain, originalBuffer;
         let isPlaying = false;
         let reverbTimeout;
-        let currentTime = 0; // For preview position
+        let animationId;
 
         document.addEventListener('DOMContentLoaded', function() {
             const audioFileInput = document.getElementById('audioFile');
@@ -257,7 +254,8 @@
             // Sync functions
             function updateSliderAndValue(slider, numInput, valueSpan, suffix) {
                 const val = parseFloat(slider.value);
-                numInput.value = val.toFixed(slider.step === '0.05' ? 2 : slider.step === '0.5' ? 1 : 0);
+                const decimals = slider.step === '0.05' ? 2 : slider.step === '0.5' ? 1 : 0;
+                numInput.value = val.toFixed(decimals);
                 valueSpan.textContent = val + suffix;
             }
 
@@ -265,17 +263,18 @@
                 let val = parseFloat(numInput.value);
                 if (isNaN(val)) val = parseFloat(slider.value);
                 val = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), val));
-                numInput.value = val.toFixed(slider.step === '0.05' ? 2 : slider.step === '0.5' ? 1 : 0);
+                const decimals = slider.step === '0.05' ? 2 : slider.step === '0.5' ? 1 : 0;
+                numInput.value = val.toFixed(decimals);
                 slider.value = val;
                 valueSpan.textContent = val + suffix;
-                updateRealTimeEffects();
+                if (isPlaying) updateRealTimeEffects();
                 if (slider === reverbTime) {
                     if (reverbTimeout) clearTimeout(reverbTimeout);
                     reverbTimeout = setTimeout(updateReverbImpulse, 200);
                 }
             }
 
-            // Event listeners
+            // Event listeners for sliders
             const sliders = [slowSpeed, reverbTime, bassBoost];
             const numInputs = [slowSpeedNum, reverbTimeNum, bassBoostNum];
             const valueSpans = [speedValue, reverbValue, bassValue];
@@ -291,16 +290,16 @@
                     if (isPlaying) updateRealTimeEffects();
                     if (index === 1) { // Reverb
                         if (reverbTimeout) clearTimeout(reverbTimeout);
-                        reverbTimeout = setTimeout(() => updateReverbImpulse(), 200);
+                        reverbTimeout = setTimeout(updateReverbImpulse, 200);
                     }
                 });
 
-                numInput.addEventListener('change', () => { // Use 'change' for number to avoid constant updates
+                numInput.addEventListener('change', () => {
                     syncFromNumber(numInput, slider, valueSpan, suffix);
                 });
             });
 
-            // File upload with loading
+            // File upload
             audioFileInput.addEventListener('change', async function(e) {
                 const file = e.target.files[0];
                 if (file && file.size > 100 * 1024 * 1024) {
@@ -313,23 +312,47 @@
                     processBtn.disabled = true;
                     previewBtn.style.display = 'none';
                     previewStatus.style.display = 'none';
+                    downloadLink.style.display = 'none';
                     try {
                         originalBuffer = await loadAudio(file);
                         uploadStatus.style.display = 'none';
                         processBtn.disabled = false;
                         previewBtn.style.display = 'block';
                         previewStatus.style.display = 'block';
-                        previewStatus.textContent = 'Ready to play! Tweak sliders and hit play for real-time effects. 🎵';
+                        previewStatus.textContent = 'Ready! Hit play to hear real-time effects. 🎵';
                         setupRealTimePreview(originalBuffer);
                         hideError();
                     } catch (err) {
                         uploadStatus.style.display = 'none';
-                        showError('Error loading audio: ' + err.message + '. Try another file.');
+                        showError('Error loading audio: ' + err.message + '. Try another file. 😔');
                     }
                 }
             });
 
-            // Real-time preview setup
+            // Preview button
+            previewBtn.addEventListener('click', () => {
+                if (!originalBuffer) {
+                    showError('Upload a file first! 😅');
+                    return;
+                }
+                if (isPlaying) {
+                    // Pause
+                    source.stop();
+                    isPlaying = false;
+                    previewBtn.innerHTML = '▶️ Play Preview (Real-Time Effects)';
+                    previewStatus.textContent = 'Paused. Tweak sliders and play again! ⏸️';
+                } else {
+                    // Play
+                    if (audioContext.state === 'suspended') audioContext.resume();
+                    source.start(0);
+                    isPlaying = true;
+                    previewBtn.innerHTML = '⏸️ Pause Preview';
+                    previewStatus.textContent = 'Playing with real-time effects! Tweak sliders to hear changes live. ▶️';
+                    // Optional: Add time update if needed, but loop is simple
+                }
+            });
+
+            // Setup real-time
             function setupRealTimePreview(buffer) {
                 if (audioContext) audioContext.close();
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -338,43 +361,4 @@
                 source.loop = true;
 
                 bassFilter = audioContext.createBiquadFilter();
-                bassFilter.type = 'lowshelf';
-                bassFilter.frequency.value = 150;
-
-                reverb = audioContext.createConvolver();
-                gain = audioContext.createGain();
-                gain.gain.value = 0.7;
-
-                source.connect(bassFilter);
-                bassFilter.connect(reverb);
-                reverb.connect(gain);
-                gain.connect(audioContext.destination);
-
-                updateRealTimeEffects();
-                updateReverbImpulse();
-            }
-
-            function updateRealTimeEffects() {
-                if (!source || !bassFilter || audioContext.state === 'suspended') return;
-                source.playbackRate.value = 1 / parseFloat(slowSpeed.value);
-                bassFilter.gain.value = parseFloat(bassBoost.value);
-            }
-
-            function updateReverbImpulse() {
-                if (!reverb || !audioContext) return;
-                const reverbTimeVal = parseFloat(reverbTime.value);
-                const sampleRate = audioContext.sampleRate;
-                const reverbLength = Math.floor(sampleRate * reverbTimeVal);
-                const reverbBuffer = audioContext.createBuffer(1, reverbLength, sampleRate);
-                const reverbData = reverbBuffer.getChannelData(0);
-                
-                reverbData[0] = 1.0;
-                let decay = 1.0;
-                const echoDelays = [0.05, 0.1, 0.2, 0.3, 0.5];
-                for (let echo of echoDelays) {
-                    const delaySamples = Math.floor(echo * sampleRate);
-                    if (delaySamples < reverbLength) {
-                        const echoAmp = decay * 0.3;
-                        reverbData[delaySamples] += echoAmp;
-                        for (let j = 1; j < 100 && delaySamples + j < reverbLength; j++) {
-                            reverbData[delaySamples
+                bassFilter.type =
