@@ -183,7 +183,7 @@
                             <div class="slider-container">
                                 <input type="range" class="form-range" id="slowSpeed" min="0.5" max="1" step="0.05" value="0.8">
                                 <span class="value-display" id="speedValue">0.8x</span>
-                                <input type="number" class="number-input" id="slowSpeedNum" min="0.5" max="1" step="0.05" value="0.8">
+                                <input type="number" class="number-input" id="slowSpeedNum" min="0.5" max="1" step="0.05" value="0.80">
                             </div>
                         </div>
                         
@@ -228,7 +228,6 @@
         let audioContext, source, bassFilter, reverb, gain, originalBuffer;
         let isPlaying = false;
         let reverbTimeout;
-        let animationId;
 
         document.addEventListener('DOMContentLoaded', function() {
             const audioFileInput = document.getElementById('audioFile');
@@ -254,7 +253,7 @@
             // Sync functions
             function updateSliderAndValue(slider, numInput, valueSpan, suffix) {
                 const val = parseFloat(slider.value);
-                const decimals = slider.step === '0.05' ? 2 : slider.step === '0.5' ? 1 : 0;
+                const decimals = slider.step == 0.05 ? 2 : slider.step == 0.5 ? 1 : 0;
                 numInput.value = val.toFixed(decimals);
                 valueSpan.textContent = val + suffix;
             }
@@ -263,18 +262,18 @@
                 let val = parseFloat(numInput.value);
                 if (isNaN(val)) val = parseFloat(slider.value);
                 val = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), val));
-                const decimals = slider.step === '0.05' ? 2 : slider.step === '0.5' ? 1 : 0;
+                const decimals = slider.step == 0.05 ? 2 : slider.step == 0.5 ? 1 : 0;
                 numInput.value = val.toFixed(decimals);
                 slider.value = val;
                 valueSpan.textContent = val + suffix;
                 if (isPlaying) updateRealTimeEffects();
-                if (slider === reverbTime) {
+                if (slider.id === 'reverbTime') {
                     if (reverbTimeout) clearTimeout(reverbTimeout);
                     reverbTimeout = setTimeout(updateReverbImpulse, 200);
                 }
             }
 
-            // Event listeners for sliders
+            // Event listeners
             const sliders = [slowSpeed, reverbTime, bassBoost];
             const numInputs = [slowSpeedNum, reverbTimeNum, bassBoostNum];
             const valueSpans = [speedValue, reverbValue, bassValue];
@@ -288,7 +287,7 @@
                 slider.addEventListener('input', () => {
                     updateSliderAndValue(slider, numInput, valueSpan, suffix);
                     if (isPlaying) updateRealTimeEffects();
-                    if (index === 1) { // Reverb
+                    if (index === 1) {
                         if (reverbTimeout) clearTimeout(reverbTimeout);
                         reverbTimeout = setTimeout(updateReverbImpulse, 200);
                     }
@@ -297,6 +296,14 @@
                 numInput.addEventListener('change', () => {
                     syncFromNumber(numInput, slider, valueSpan, suffix);
                 });
+            });
+
+            // Initial update
+            sliders.forEach((slider, index) => {
+                const numInput = numInputs[index];
+                const valueSpan = valueSpans[index];
+                const suffix = suffixes[index];
+                updateSliderAndValue(slider, numInput, valueSpan, suffix);
             });
 
             // File upload
@@ -336,29 +343,49 @@
                     return;
                 }
                 if (isPlaying) {
-                    // Pause
                     source.stop();
                     isPlaying = false;
                     previewBtn.innerHTML = '▶️ Play Preview (Real-Time Effects)';
                     previewStatus.textContent = 'Paused. Tweak sliders and play again! ⏸️';
                 } else {
-                    // Play
                     if (audioContext.state === 'suspended') audioContext.resume();
+                    source = audioContext.createBufferSource();
+                    source.buffer = originalBuffer;
+                    source.loop = true;
+                    source.connect(bassFilter);
                     source.start(0);
                     isPlaying = true;
                     previewBtn.innerHTML = '⏸️ Pause Preview';
                     previewStatus.textContent = 'Playing with real-time effects! Tweak sliders to hear changes live. ▶️';
-                    // Optional: Add time update if needed, but loop is simple
+                    updateRealTimeEffects();
+                    updateReverbImpulse();
                 }
             });
 
-            // Setup real-time
+            // Real-time setup
             function setupRealTimePreview(buffer) {
                 if (audioContext) audioContext.close();
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                source = audioContext.createBufferSource();
-                source.buffer = buffer;
-                source.loop = true;
-
                 bassFilter = audioContext.createBiquadFilter();
-                bassFilter.type =
+                bassFilter.type = 'lowshelf';
+                bassFilter.frequency.value = 150;
+                bassFilter.connect(audioContext.destination);
+
+                reverb = audioContext.createConvolver();
+                gain = audioContext.createGain();
+                gain.gain.value = 0.7;
+                bassFilter.connect(reverb);
+                reverb.connect(gain);
+                gain.connect(audioContext.destination);
+
+                updateRealTimeEffects();
+                updateReverbImpulse();
+            }
+
+            function updateRealTimeEffects() {
+                if (!bassFilter) return;
+                bassFilter.gain.value = parseFloat(bassBoost.value);
+                if (source) source.playbackRate.value = 1 / parseFloat(slowSpeed.value);
+            }
+
+            function updateReverbImpulse()
