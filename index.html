@@ -1,209 +1,315 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lofi Beat Generator</title>
-  <meta name="description" content="Simple Lofi beat generator — play, tweak, record & download. Hosted on GitHub Pages." />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Slowed + Reverb Tool 🎧</title>
+  <meta name="description" content="Make your own slowed + reverb version of any song online. Upload or paste a link, slow it down, add dreamy reverb, and download. Made with Tone.js" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
 
   <style>
-    :root{
-      --bg1: #0f1724;
-      --bg2: #24263a;
-      --accent: #ffb6c1;
-      --muted: #cbd5e1;
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --accent: #7b61ff;
+      --text: #ffffff;
+      --muted: #9ca3af;
+      --glow: 0 0 15px rgba(123,97,255,0.6);
     }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      min-height:100vh;
-      font-family:Inter,"Poppins",system-ui;
-      background:linear-gradient(135deg,var(--bg1),var(--bg2));
-      color:#e6eef8;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:32px;
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #0f1424, #050810);
+      font-family: 'Poppins', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
     }
-    .app{
-      width:100%;
-      max-width:900px;
-      background:rgba(255,255,255,0.05);
-      border-radius:12px;
-      padding:24px;
-      box-shadow:0 8px 30px rgba(0,0,0,0.5);
+
+    .app {
+      width: 100%;
+      max-width: 800px;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+      padding: 20px;
     }
-    header h1{margin:0;font-size:28px}
-    .subtitle{color:var(--muted);margin-bottom:20px}
-    .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-    input[type=range]{width:280px}
-    .btn{
-      border:none;
-      padding:10px 15px;
-      border-radius:8px;
-      background:rgba(255,255,255,0.08);
-      color:#fff;
-      cursor:pointer;
-      transition:all .15s;
+
+    h1 {
+      text-align: center;
+      margin-bottom: 5px;
+      font-size: 1.8em;
+      text-shadow: var(--glow);
     }
-    .btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.12)}
-    .primary{background:linear-gradient(90deg,var(--accent),#ffd7e6);color:#222;font-weight:600}
-    footer{text-align:center;color:var(--muted);font-size:13px;margin-top:15px}
+    p.desc { text-align: center; color: var(--muted); margin-top: 0; margin-bottom: 20px; }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    input[type="file"], input[type="text"] {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      width: 250px;
+    }
+
+    input[type="range"] {
+      width: 200px;
+    }
+
+    label {
+      font-size: 0.9em;
+      color: var(--muted);
+    }
+
+    .btn {
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: var(--glow);
+      transition: all 0.2s;
+    }
+    .btn:hover { filter: brightness(1.2); }
+
+    .btn.secondary {
+      background: rgba(255,255,255,0.1);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.85em;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    footer {
+      margin-top: 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8em;
+    }
+
+    @media (max-width: 600px) {
+      .btn { width: 100%; }
+      input[type="file"], input[type="text"] { width: 100%; }
+      input[type="range"] { width: 100%; }
+    }
   </style>
 </head>
+
 <body>
   <div class="app">
-    <header>
-      <h1>🎧 Lofi Beat Generator</h1>
-      <p class="subtitle">Play • Tweak • Record • Download</p>
-    </header>
+    <h1>🎧 Slowed + Reverb Generator</h1>
+    <p class="desc">Make dreamy slowed versions of any track online.</p>
 
-    <main>
-      <div class="row">
-        <label>Tempo: <span id="tempoVal">80</span> BPM</label>
-        <input type="range" id="tempo" min="60" max="120" value="80">
-      </div>
+    <div class="input-group">
+      <input type="file" id="fileInput" accept="audio/*">
+      <input type="text" id="urlInput" placeholder="Or paste audio URL">
+      <button class="btn secondary" id="loadUrlBtn">Load</button>
+    </div>
 
-      <div class="row">
-        <label>Swing:
-          <input type="range" id="swing" min="0" max="0.9" step="0.01" value="0.15">
-          <span id="swingVal">0.15</span>
-        </label>
-      </div>
+    <div class="slider-group">
+      <label>Playback speed: <span id="rateVal">0.75</span>x</label>
+      <input type="range" id="rate" min="0.25" max="1.5" step="0.01" value="0.75">
+    </div>
 
-      <div class="row">
-        <label>Pattern:
-          <select id="pattern">
-            <option value="basic">Basic Boom-Bap</option>
-            <option value="chill">Chill Groove</option>
-            <option value="custom">Random</option>
-          </select>
-        </label>
-      </div>
+    <div class="slider-group">
+      <label>Reverb intensity: <span id="wetVal">0.5</span></label>
+      <input type="range" id="wet" min="0" max="1" step="0.01" value="0.5">
+    </div>
 
-      <div class="row">
-        <button id="playBtn" class="btn primary">Play</button>
-        <button id="stopBtn" class="btn">Stop</button>
-        <button id="recordBtn" class="btn">Start Recording</button>
-        <button id="downloadBtn" class="btn" disabled>Download</button>
-      </div>
+    <div class="row">
+      <label><input type="checkbox" id="preservePitch" checked> Preserve Pitch</label>
+      <label><input type="checkbox" id="lofiTone"> Lofi Tone</label>
+      <label><input type="checkbox" id="crackle"> Vinyl Crackle</label>
+    </div>
 
-      <div class="row">
-        <label><input type="checkbox" id="vinyl"> Add vinyl crackle</label>
-        <label><input type="checkbox" id="pad"> Add mellow pad</label>
-      </div>
+    <div class="controls">
+      <button class="btn" id="playBtn">▶️ Play</button>
+      <button class="btn secondary" id="pauseBtn">⏸️ Pause</button>
+      <button class="btn secondary" id="stopBtn">⏹️ Stop</button>
+    </div>
 
-      <div class="row">
-        <span>Status: <b id="status">idle</b></span>
-      </div>
-    </main>
+    <div class="controls">
+      <button class="btn secondary" id="startRec">🎙️ Start Recording</button>
+      <button class="btn secondary" id="stopRec" disabled>💾 Stop & Save</button>
+      <button class="btn secondary" id="downloadBtn" disabled>⬇️ Download</button>
+    </div>
 
-    <footer>
-      <small>Made with 💖 using Tone.js — Host on GitHub Pages</small>
-    </footer>
+    <div class="status" id="status">Idle</div>
+
+    <footer>Built with ❤️ using Tone.js • Works best on Chrome</footer>
   </div>
 
-  <!-- Tone.js Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
   <script>
-    // 🎵 Instruments
-    const synth = new Tone.PolySynth(Tone.Synth).toDestination();
-    const kick = new Tone.MembraneSynth().toDestination();
-    const snare = new Tone.NoiseSynth({ envelope: { attack: 0.01, decay: 0.2, sustain: 0 } }).toDestination();
-    const hihat = new Tone.MetalSynth().toDestination();
-    const pad = new Tone.PolySynth(Tone.AMSynth).toDestination();
+    const fileInput = document.getElementById("fileInput");
+    const urlInput = document.getElementById("urlInput");
+    const loadUrlBtn = document.getElementById("loadUrlBtn");
+    const playBtn = document.getElementById("playBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const rate = document.getElementById("rate");
+    const rateVal = document.getElementById("rateVal");
+    const wet = document.getElementById("wet");
+    const wetVal = document.getElementById("wetVal");
+    const preservePitch = document.getElementById("preservePitch");
+    const lofiTone = document.getElementById("lofiTone");
+    const crackle = document.getElementById("crackle");
+    const statusEl = document.getElementById("status");
+    const startRec = document.getElementById("startRec");
+    const stopRec = document.getElementById("stopRec");
+    const downloadBtn = document.getElementById("downloadBtn");
 
-    const reverb = new Tone.Reverb({ decay: 3, wet: 0.3 }).toDestination();
-    const filter = new Tone.Filter(1200, "lowpass").toDestination();
-    synth.connect(reverb); reverb.connect(filter);
-    pad.connect(reverb); reverb.connect(filter);
-    kick.connect(filter); snare.connect(filter); hihat.connect(filter);
+    let player, reverb, filter, crackleNoise, crackleGain, pitchShift;
+    let mediaRecorder, chunks = [];
 
-    // 🎛️ Controls
-    const tempo = document.getElementById('tempo');
-    const swing = document.getElementById('swing');
-    const pattern = document.getElementById('pattern');
-    const statusEl = document.getElementById('status');
-    const vinyl = document.getElementById('vinyl');
-    const padChk = document.getElementById('pad');
-    const recordBtn = document.getElementById('recordBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-
-    document.getElementById('tempoVal').innerText = tempo.value;
-    document.getElementById('swingVal').innerText = swing.value;
-    tempo.oninput = () => {Tone.Transport.bpm.value = tempo.value; document.getElementById('tempoVal').innerText = tempo.value;};
-    swing.oninput = () => {Tone.Transport.swing = swing.value; document.getElementById('swingVal').innerText = swing.value;};
-
-    const patterns = {
-      basic: ["K","H","-","H","S","H","-","H"],
-      chill: ["K","H","H","H","S","H","-","H"],
-      custom: null
-    };
-
-    function randomPattern(){
-      return Array(8).fill('-').map(()=>['K','S','H','-'][Math.floor(Math.random()*4)]);
+    async function loadAudio(url) {
+      if (player) player.dispose();
+      player = new Tone.Player({ url, loop: false }).toDestination();
+      player.playbackRate = parseFloat(rate.value);
+      connectChain();
+      statusEl.textContent = "Loaded audio";
     }
 
-    let index=0, recorder, recorded=[];
-    function schedule(){
-      Tone.Transport.cancel();
-      const pat = pattern.value==="custom"?randomPattern():patterns[pattern.value];
-      Tone.Transport.scheduleRepeat(time=>{
-        const step = pat[index%pat.length];
-        if(step==='K') kick.triggerAttackRelease("C2","8n",time);
-        if(step==='S') snare.triggerAttackRelease("8n",time);
-        if(step==='H') hihat.triggerAttackRelease("16n",time);
-        if(index%4===0) (padChk.checked?pad:synth).triggerAttackRelease(["C4","E4","G4"],"2n",time,0.6);
-        index++;
-      },"8n");
-    }
+    fileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      loadAudio(URL.createObjectURL(file));
+    });
 
-    document.getElementById('playBtn').onclick = async ()=>{
-      await Tone.start();
-      statusEl.innerText='playing';
-      schedule();
-      Tone.Transport.bpm.value = tempo.value;
-      Tone.Transport.start();
-    };
-    document.getElementById('stopBtn').onclick = ()=>{
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
-      statusEl.innerText='stopped';
-    };
+    loadUrlBtn.addEventListener("click", () => {
+      const url = urlInput.value.trim();
+      if (!url) return alert("Enter valid audio URL");
+      loadAudio(url);
+    });
 
-    // 🎙️ Recording
-    function setupRecorder(){
-      const dest = Tone.context.createMediaStreamDestination();
-      filter.connect(dest);
-      recorder = new MediaRecorder(dest.stream);
-      recorder.ondataavailable = e=>recorded.push(e.data);
-      recorder.onstop=()=>downloadBtn.disabled=false;
-    }
+    function connectChain() {
+      if (!player) return;
+      player.disconnect();
 
-    recordBtn.onclick=async()=>{
-      if(!recorder) setupRecorder();
-      if(recordBtn.textContent.includes('Start')){
-        recorded=[];
-        recorder.start();
-        recordBtn.textContent='Stop Recording';
-        statusEl.innerText='recording';
-        if(Tone.Transport.state!=='started'){schedule();Tone.Transport.start();}
+      reverb = new Tone.Reverb({ decay: 3, wet: parseFloat(wet.value) }).toDestination();
+      if (preservePitch.checked) {
+        pitchShift = new Tone.PitchShift({ pitch: -12 * Math.log2(rate.value) });
+        player.connect(pitchShift);
+        pitchShift.connect(reverb);
       } else {
-        recorder.stop();
-        recordBtn.textContent='Start Recording';
-        statusEl.innerText='saved';
+        player.connect(reverb);
       }
-    };
 
-    downloadBtn.onclick=()=>{
-      const blob=new Blob(recorded,{type:'audio/webm'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;
-      a.download='lofi-beat.webm';
-      a.click();
-      URL.revokeObjectURL(url);
-    };
+      if (lofiTone.checked) {
+        filter = new Tone.Filter(1200, "lowpass").toDestination();
+        reverb.connect(filter);
+      }
+
+      if (crackle.checked) {
+        crackleNoise = new Tone.Noise("brown").start();
+        crackleGain = new Tone.Gain(0.02).toDestination();
+        crackleNoise.connect(crackleGain);
+      }
+    }
+
+    rate.addEventListener("input", () => {
+      rateVal.textContent = rate.value;
+      if (player) player.playbackRate = parseFloat(rate.value);
+    });
+    wet.addEventListener("input", () => {
+      wetVal.textContent = wet.value;
+      if (reverb) reverb.wet.value = parseFloat(wet.value);
+    });
+
+    [preservePitch, lofiTone, crackle].forEach(chk => chk.addEventListener("change", connectChain));
+
+    playBtn.addEventListener("click", async () => {
+      await Tone.start();
+      if (!player) return alert("Load an audio file first!");
+      connectChain();
+      player.start();
+      statusEl.textContent = "Playing...";
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      if (player) player.stop();
+      statusEl.textContent = "Paused";
+    });
+
+    stopBtn.addEventListener("click", () => {
+      if (player) player.stop();
+      statusEl.textContent = "Stopped";
+    });
+
+    // Recording
+    startRec.addEventListener("click", () => {
+      if (!player) return alert("Load an audio first!");
+      const dest = Tone.context.createMediaStreamDestination();
+      Tone.Destination.connect(dest);
+      mediaRecorder = new MediaRecorder(dest.stream);
+      chunks = [];
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        downloadBtn.href = url;
+        downloadBtn.download = "slowed-reverb.webm";
+        downloadBtn.disabled = false;
+      };
+      mediaRecorder.start();
+      startRec.disabled = true;
+      stopRec.disabled = false;
+      statusEl.textContent = "Recording...";
+    });
+
+    stopRec.addEventListener("click", () => {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+        startRec.disabled = false;
+        stopRec.disabled = true;
+        statusEl.textContent = "Recording stopped";
+      }
+    });
+
   </script>
 </body>
 </html>
