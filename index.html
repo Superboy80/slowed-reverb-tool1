@@ -1,235 +1,209 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
-<meta charset="UTF-8">
-<title>Pro LoFi Slowed + Reverb + Bass Tool</title>
-<style>
-  body { background:#121212; color:white; font-family:Arial, sans-serif; text-align:center; padding:20px; }
-  .control { margin:15px; }
-  input[type=range] { width:300px; }
-  button { margin:5px; padding:10px 20px; font-size:16px; cursor:pointer; }
-  #uploadStatus { margin:10px; color:lightgreen; font-weight:bold; }
-  #progressContainer { margin:15px; width:300px; height:10px; background:#555; border-radius:5px; overflow:hidden; display:inline-block; }
-  #progressBar { height:10px; background:#1db954; width:0%; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lofi Beat Generator</title>
+  <meta name="description" content="Simple Lofi beat generator — play, tweak, record & download. Hosted on GitHub Pages." />
+
+  <style>
+    :root{
+      --bg1: #0f1724;
+      --bg2: #24263a;
+      --accent: #ffb6c1;
+      --muted: #cbd5e1;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:Inter,"Poppins",system-ui;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:#e6eef8;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px;
+    }
+    .app{
+      width:100%;
+      max-width:900px;
+      background:rgba(255,255,255,0.05);
+      border-radius:12px;
+      padding:24px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.5);
+    }
+    header h1{margin:0;font-size:28px}
+    .subtitle{color:var(--muted);margin-bottom:20px}
+    .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    input[type=range]{width:280px}
+    .btn{
+      border:none;
+      padding:10px 15px;
+      border-radius:8px;
+      background:rgba(255,255,255,0.08);
+      color:#fff;
+      cursor:pointer;
+      transition:all .15s;
+    }
+    .btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.12)}
+    .primary{background:linear-gradient(90deg,var(--accent),#ffd7e6);color:#222;font-weight:600}
+    footer{text-align:center;color:var(--muted);font-size:13px;margin-top:15px}
+  </style>
 </head>
 <body>
-<h1>🎶 Pro LoFi Slowed + Reverb + Bass Tool</h1>
+  <div class="app">
+    <header>
+      <h1>🎧 Lofi Beat Generator</h1>
+      <p class="subtitle">Play • Tweak • Record • Download</p>
+    </header>
 
-<input type="file" id="fileInput" accept="audio/*"><br>
-<div id="uploadStatus"></div>
-<div id="progressContainer"><div id="progressBar"></div></div><br><br>
+    <main>
+      <div class="row">
+        <label>Tempo: <span id="tempoVal">80</span> BPM</label>
+        <input type="range" id="tempo" min="60" max="120" value="80">
+      </div>
 
-<button id="playBtn">▶ Play</button>
-<button id="stopBtn">⏹ Stop</button>
-<button id="restartBtn">🔄 Restart</button>
-<button id="downloadBtn">💾 Render & Download</button>
+      <div class="row">
+        <label>Swing:
+          <input type="range" id="swing" min="0" max="0.9" step="0.01" value="0.15">
+          <span id="swingVal">0.15</span>
+        </label>
+      </div>
 
-<div class="control">
-  <label>Speed: <span id="speedVal">1.0</span>x</label><br>
-  <input type="range" id="speedControl" min="0.5" max="1.5" value="1" step="0.01">
-</div>
+      <div class="row">
+        <label>Pattern:
+          <select id="pattern">
+            <option value="basic">Basic Boom-Bap</option>
+            <option value="chill">Chill Groove</option>
+            <option value="custom">Random</option>
+          </select>
+        </label>
+      </div>
 
-<div class="control">
-  <label>Reverb: <span id="reverbVal">0.0</span></label><br>
-  <input type="range" id="reverbControl" min="0" max="1" value="0" step="0.01">
-</div>
+      <div class="row">
+        <button id="playBtn" class="btn primary">Play</button>
+        <button id="stopBtn" class="btn">Stop</button>
+        <button id="recordBtn" class="btn">Start Recording</button>
+        <button id="downloadBtn" class="btn" disabled>Download</button>
+      </div>
 
-<div class="control">
-  <label>Bass Boost: <span id="bassVal">0.0</span></label><br>
-  <input type="range" id="bassControl" min="0" max="20" value="0" step="1">
-</div>
+      <div class="row">
+        <label><input type="checkbox" id="vinyl"> Add vinyl crackle</label>
+        <label><input type="checkbox" id="pad"> Add mellow pad</label>
+      </div>
 
-<div class="control">
-  <label>Volume: <span id="volumeVal">100%</span></label><br>
-  <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1">
-</div>
+      <div class="row">
+        <span>Status: <b id="status">idle</b></span>
+      </div>
+    </main>
 
-<div class="control">
-  <label>Playback: <span id="currentTime">0:00</span> / <span id="duration">0:00</span></label><br>
-  <input type="range" id="progressControl" min="0" max="100" step="0.1" value="0">
-</div>
+    <footer>
+      <small>Made with 💖 using Tone.js — Host on GitHub Pages</small>
+    </footer>
+  </div>
 
-<script>
-let audioCtx, audioBuffer, source;
-let convolver, bassFilter, wetGain, dryGain, masterGain, gainNode;
-let isPlaying = false, startTime = 0, pauseTime = 0;
-const fileInput = document.getElementById("fileInput");
-const uploadStatus = document.getElementById("uploadStatus");
-const progressBar = document.getElementById("progressBar");
-const currentTimeEl = document.getElementById("currentTime");
-const durationEl = document.getElementById("duration");
-const progressControl = document.getElementById("progressControl");
+  <!-- Tone.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+  <script>
+    // 🎵 Instruments
+    const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+    const kick = new Tone.MembraneSynth().toDestination();
+    const snare = new Tone.NoiseSynth({ envelope: { attack: 0.01, decay: 0.2, sustain: 0 } }).toDestination();
+    const hihat = new Tone.MetalSynth().toDestination();
+    const pad = new Tone.PolySynth(Tone.AMSynth).toDestination();
 
-// Reset audio
-function resetAudio() {
-  if(source) { try{ source.stop() } catch{} }
-  source = null;
-  isPlaying = false;
-  startTime = 0;
-  pauseTime = 0;
-  currentTimeEl.textContent = "0:00";
-  progressControl.value = 0;
-}
+    const reverb = new Tone.Reverb({ decay: 3, wet: 0.3 }).toDestination();
+    const filter = new Tone.Filter(1200, "lowpass").toDestination();
+    synth.connect(reverb); reverb.connect(filter);
+    pad.connect(reverb); reverb.connect(filter);
+    kick.connect(filter); snare.connect(filter); hihat.connect(filter);
 
-// File upload
-fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  resetAudio();
-  uploadStatus.textContent = "⏳ Loading...";
-  progressBar.style.width = "0%";
+    // 🎛️ Controls
+    const tempo = document.getElementById('tempo');
+    const swing = document.getElementById('swing');
+    const pattern = document.getElementById('pattern');
+    const statusEl = document.getElementById('status');
+    const vinyl = document.getElementById('vinyl');
+    const padChk = document.getElementById('pad');
+    const recordBtn = document.getElementById('recordBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
 
-  const arrayBuffer = await file.arrayBuffer();
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    document.getElementById('tempoVal').innerText = tempo.value;
+    document.getElementById('swingVal').innerText = swing.value;
+    tempo.oninput = () => {Tone.Transport.bpm.value = tempo.value; document.getElementById('tempoVal').innerText = tempo.value;};
+    swing.oninput = () => {Tone.Transport.swing = swing.value; document.getElementById('swingVal').innerText = swing.value;};
 
-  uploadStatus.textContent = "✅ Audio Loaded!";
-  progressBar.style.width = "100%";
+    const patterns = {
+      basic: ["K","H","-","H","S","H","-","H"],
+      chill: ["K","H","H","H","S","H","-","H"],
+      custom: null
+    };
 
-  durationEl.textContent = formatTime(audioBuffer.duration);
-});
+    function randomPattern(){
+      return Array(8).fill('-').map(()=>['K','S','H','-'][Math.floor(Math.random()*4)]);
+    }
 
-// Format seconds to mm:ss
-function formatTime(sec) {
-  const m = Math.floor(sec/60);
-  const s = Math.floor(sec%60);
-  return `${m}:${s<10?'0'+s:s}`;
-}
+    let index=0, recorder, recorded=[];
+    function schedule(){
+      Tone.Transport.cancel();
+      const pat = pattern.value==="custom"?randomPattern():patterns[pattern.value];
+      Tone.Transport.scheduleRepeat(time=>{
+        const step = pat[index%pat.length];
+        if(step==='K') kick.triggerAttackRelease("C2","8n",time);
+        if(step==='S') snare.triggerAttackRelease("8n",time);
+        if(step==='H') hihat.triggerAttackRelease("16n",time);
+        if(index%4===0) (padChk.checked?pad:synth).triggerAttackRelease(["C4","E4","G4"],"2n",time,0.6);
+        index++;
+      },"8n");
+    }
 
-// Create audio graph
-function createAudioGraph() {
-  source = audioCtx.createBufferSource();
-  source.buffer = audioBuffer;
+    document.getElementById('playBtn').onclick = async ()=>{
+      await Tone.start();
+      statusEl.innerText='playing';
+      schedule();
+      Tone.Transport.bpm.value = tempo.value;
+      Tone.Transport.start();
+    };
+    document.getElementById('stopBtn').onclick = ()=>{
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+      statusEl.innerText='stopped';
+    };
 
-  bassFilter = audioCtx.createBiquadFilter();
-  bassFilter.type = "lowshelf";
-  bassFilter.frequency.value = 200;
-  bassFilter.gain.value = parseFloat(document.getElementById("bassControl").value);
+    // 🎙️ Recording
+    function setupRecorder(){
+      const dest = Tone.context.createMediaStreamDestination();
+      filter.connect(dest);
+      recorder = new MediaRecorder(dest.stream);
+      recorder.ondataavailable = e=>recorded.push(e.data);
+      recorder.onstop=()=>downloadBtn.disabled=false;
+    }
 
-  convolver = audioCtx.createConvolver();
-  convolver.buffer = createReverbIR();
+    recordBtn.onclick=async()=>{
+      if(!recorder) setupRecorder();
+      if(recordBtn.textContent.includes('Start')){
+        recorded=[];
+        recorder.start();
+        recordBtn.textContent='Stop Recording';
+        statusEl.innerText='recording';
+        if(Tone.Transport.state!=='started'){schedule();Tone.Transport.start();}
+      } else {
+        recorder.stop();
+        recordBtn.textContent='Start Recording';
+        statusEl.innerText='saved';
+      }
+    };
 
-  wetGain = audioCtx.createGain();
-  dryGain = audioCtx.createGain();
-  masterGain = audioCtx.createGain();
-  gainNode = audioCtx.createGain();
-  gainNode.gain.value = parseFloat(document.getElementById("volumeControl").value);
-
-  source.connect(bassFilter);
-  bassFilter.connect(dryGain);
-  bassFilter.connect(convolver);
-  convolver.connect(wetGain);
-  dryGain.connect(masterGain);
-  wetGain.connect(masterGain);
-  masterGain.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-
-  dryGain.gain.value = 1;
-  wetGain.gain.value = parseFloat(document.getElementById("reverbControl").value);
-  source.playbackRate.value = parseFloat(document.getElementById("speedControl").value);
-
-  source.onended = () => { isPlaying = false; };
-}
-
-// Reverb impulse
-function createReverbIR() {
-  const length = audioCtx.sampleRate * 3;
-  const impulse = audioCtx.createBuffer(2, length, audioCtx.sampleRate);
-  for (let c=0;c<2;c++) {
-    const channel = impulse.getChannelData(c);
-    for (let i=0;i<length;i++) channel[i] = (Math.random()*2-1)*(1-i/length);
-  }
-  return impulse;
-}
-
-// Play
-document.getElementById("playBtn").addEventListener("click", () => {
-  if(!audioBuffer) return alert("Upload audio first!");
-  if(audioCtx.state === "suspended") audioCtx.resume();
-  if(!isPlaying) {
-    createAudioGraph();
-    startTime = audioCtx.currentTime - pauseTime;
-    source.start(0, pauseTime);
-    isPlaying = true;
-    updateProgress();
-  }
-});
-
-// Stop
-document.getElementById("stopBtn").addEventListener("click", () => {
-  if(source && isPlaying) {
-    source.stop();
-    pauseTime = audioCtx.currentTime - startTime;
-    isPlaying = false;
-  }
-});
-
-// Restart
-document.getElementById("restartBtn").addEventListener("click", () => {
-  if(!audioBuffer) return;
-  resetAudio();
-  createAudioGraph();
-  startTime = audioCtx.currentTime;
-  source.start();
-  isPlaying = true;
-  updateProgress();
-});
-
-// Slider events
-document.getElementById("speedControl").addEventListener("input", e => {
-  if(source) source.playbackRate.value = parseFloat(e.target.value);
-  document.getElementById("speedVal").textContent = e.target.value;
-});
-document.getElementById("reverbControl").addEventListener("input", e => {
-  if(wetGain) wetGain.gain.value = parseFloat(e.target.value);
-  document.getElementById("reverbVal").textContent = e.target.value;
-});
-document.getElementById("bassControl").addEventListener("input", e => {
-  if(bassFilter) bassFilter.gain.value = parseFloat(e.target.value);
-  document.getElementById("bassVal").textContent = e.target.value;
-});
-document.getElementById("volumeControl").addEventListener("input", e => {
-  if(gainNode) gainNode.gain.value = parseFloat(e.target.value);
-  document.getElementById("volumeVal").textContent = Math.floor(parseFloat(e.target.value)*100) + "%";
-});
-
-// Playback progress slider
-progressControl.addEventListener("input", e => {
-  if(!audioBuffer || !source) return;
-  const seekTime = audioBuffer.duration * (e.target.value/100);
-  resetAudio();
-  createAudioGraph();
-  source.start(0, seekTime);
-  startTime = audioCtx.currentTime - seekTime;
-  isPlaying = true;
-  updateProgress();
-});
-
-// Update progress
-function updateProgress() {
-  if(!isPlaying) return;
-  const elapsed = audioCtx.currentTime - startTime;
-  currentTimeEl.textContent = formatTime(elapsed);
-  progressControl.value = (elapsed/audioBuffer.duration)*100;
-  if(elapsed < audioBuffer.duration) requestAnimationFrame(updateProgress);
-}
-
-// Render & Download
-document.getElementById("downloadBtn").addEventListener("click", async () => {
-  if(!audioBuffer) return alert("Upload audio first!");
-  const offlineCtx = new OfflineAudioContext(2, audioBuffer.length, audioBuffer.sampleRate);
-
-  const src = offlineCtx.createBufferSource();
-  src.buffer = audioBuffer;
-
-  const bass = offlineCtx.createBiquadFilter();
-  bass.type = "lowshelf";
-  bass.frequency.value = 200;
-  bass.gain.value = parseFloat(document.getElementById("bassControl").value);
-
-  const conv = offlineCtx.createConvolver();
-  conv.buffer = offlineCtx.createBuffer(2, offlineCtx.sampleRate*3, offlineCtx.sampleRate);
-  for(let c=0;c<2;c++){
-    const channel = conv.buffer.getChannelData(c);
-    for(let i=
+    downloadBtn.onclick=()=>{
+      const blob=new Blob(recorded,{type:'audio/webm'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='lofi-beat.webm';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  </script>
+</body>
+</html>
