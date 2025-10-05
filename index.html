@@ -1,315 +1,168 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Slowed + Reverb Tool 🎧</title>
-  <meta name="description" content="Make your own slowed + reverb version of any song online. Upload or paste a link, slow it down, add dreamy reverb, and download. Made with Tone.js" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+document.addEventListener('DOMContentLoaded', function() {
+    const audioFileInput = document.getElementById('audioFile');
+    const processBtn = document.getElementById('processBtn');
+    const progress = document.getElementById('progress');
+    const progressBar = progress.querySelector('.progress-bar');
+    const preview = document.getElementById('preview');
+    const downloadLink = document.getElementById('downloadLink');
+    const errorMsg = document.getElementById('errorMsg');
+    const slowSpeed = document.getElementById('slowSpeed');
+    const reverbTime = document.getElementById('reverbTime');
+    const speedValue = document.getElementById('speedValue');
+    const reverbValue = document.getElementById('reverbValue');
 
-  <style>
-    :root {
-      --bg: #0d1117;
-      --card: #161b22;
-      --accent: #7b61ff;
-      --text: #ffffff;
-      --muted: #9ca3af;
-      --glow: 0 0 15px rgba(123,97,255,0.6);
-    }
+    // Update sliders display
+    slowSpeed.addEventListener('input', () => speedValue.textContent = slowSpeed.value + 'x');
+    reverbTime.addEventListener('input', () => reverbValue.textContent = reverbTime.value + 's');
 
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: radial-gradient(circle at top, #0f1424, #050810);
-      font-family: 'Poppins', sans-serif;
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    .app {
-      width: 100%;
-      max-width: 800px;
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(15px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      box-shadow: 0 10px 50px rgba(0,0,0,0.5);
-      padding: 20px;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 5px;
-      font-size: 1.8em;
-      text-shadow: var(--glow);
-    }
-    p.desc { text-align: center; color: var(--muted); margin-top: 0; margin-bottom: 20px; }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      justify-content: center;
-      margin-bottom: 12px;
-    }
-
-    .input-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-
-    input[type="file"], input[type="text"] {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #fff;
-      border-radius: 8px;
-      padding: 10px;
-      width: 250px;
-    }
-
-    input[type="range"] {
-      width: 200px;
-    }
-
-    label {
-      font-size: 0.9em;
-      color: var(--muted);
-    }
-
-    .btn {
-      background: var(--accent);
-      border: none;
-      color: white;
-      padding: 10px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      box-shadow: var(--glow);
-      transition: all 0.2s;
-    }
-    .btn:hover { filter: brightness(1.2); }
-
-    .btn.secondary {
-      background: rgba(255,255,255,0.1);
-      color: var(--text);
-      box-shadow: none;
-    }
-
-    .status {
-      text-align: center;
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 0.85em;
-    }
-
-    .slider-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-
-    .row {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    footer {
-      margin-top: 20px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.8em;
-    }
-
-    @media (max-width: 600px) {
-      .btn { width: 100%; }
-      input[type="file"], input[type="text"] { width: 100%; }
-      input[type="range"] { width: 100%; }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="app">
-    <h1>🎧 Slowed + Reverb Generator</h1>
-    <p class="desc">Make dreamy slowed versions of any track online.</p>
-
-    <div class="input-group">
-      <input type="file" id="fileInput" accept="audio/*">
-      <input type="text" id="urlInput" placeholder="Or paste audio URL">
-      <button class="btn secondary" id="loadUrlBtn">Load</button>
-    </div>
-
-    <div class="slider-group">
-      <label>Playback speed: <span id="rateVal">0.75</span>x</label>
-      <input type="range" id="rate" min="0.25" max="1.5" step="0.01" value="0.75">
-    </div>
-
-    <div class="slider-group">
-      <label>Reverb intensity: <span id="wetVal">0.5</span></label>
-      <input type="range" id="wet" min="0" max="1" step="0.01" value="0.5">
-    </div>
-
-    <div class="row">
-      <label><input type="checkbox" id="preservePitch" checked> Preserve Pitch</label>
-      <label><input type="checkbox" id="lofiTone"> Lofi Tone</label>
-      <label><input type="checkbox" id="crackle"> Vinyl Crackle</label>
-    </div>
-
-    <div class="controls">
-      <button class="btn" id="playBtn">▶️ Play</button>
-      <button class="btn secondary" id="pauseBtn">⏸️ Pause</button>
-      <button class="btn secondary" id="stopBtn">⏹️ Stop</button>
-    </div>
-
-    <div class="controls">
-      <button class="btn secondary" id="startRec">🎙️ Start Recording</button>
-      <button class="btn secondary" id="stopRec" disabled>💾 Stop & Save</button>
-      <button class="btn secondary" id="downloadBtn" disabled>⬇️ Download</button>
-    </div>
-
-    <div class="status" id="status">Idle</div>
-
-    <footer>Built with ❤️ using Tone.js • Works best on Chrome</footer>
-  </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-  <script>
-    const fileInput = document.getElementById("fileInput");
-    const urlInput = document.getElementById("urlInput");
-    const loadUrlBtn = document.getElementById("loadUrlBtn");
-    const playBtn = document.getElementById("playBtn");
-    const pauseBtn = document.getElementById("pauseBtn");
-    const stopBtn = document.getElementById("stopBtn");
-    const rate = document.getElementById("rate");
-    const rateVal = document.getElementById("rateVal");
-    const wet = document.getElementById("wet");
-    const wetVal = document.getElementById("wetVal");
-    const preservePitch = document.getElementById("preservePitch");
-    const lofiTone = document.getElementById("lofiTone");
-    const crackle = document.getElementById("crackle");
-    const statusEl = document.getElementById("status");
-    const startRec = document.getElementById("startRec");
-    const stopRec = document.getElementById("stopRec");
-    const downloadBtn = document.getElementById("downloadBtn");
-
-    let player, reverb, filter, crackleNoise, crackleGain, pitchShift;
-    let mediaRecorder, chunks = [];
-
-    async function loadAudio(url) {
-      if (player) player.dispose();
-      player = new Tone.Player({ url, loop: false }).toDestination();
-      player.playbackRate = parseFloat(rate.value);
-      connectChain();
-      statusEl.textContent = "Loaded audio";
-    }
-
-    fileInput.addEventListener("change", e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      loadAudio(URL.createObjectURL(file));
+    // File upload
+    audioFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file && file.size > 100 * 1024 * 1024) {
+            showError('File too large! Max 100MB.');
+            return;
+        }
+        if (file) {
+            processBtn.disabled = false;
+            preview.src = URL.createObjectURL(file); // Preview original
+            preview.style.display = 'block';
+        }
     });
 
-    loadUrlBtn.addEventListener("click", () => {
-      const url = urlInput.value.trim();
-      if (!url) return alert("Enter valid audio URL");
-      loadAudio(url);
+    // Process button
+    processBtn.addEventListener('click', async function() {
+        const file = audioFileInput.files[0];
+        if (!file) {
+            showError('Please upload a file first!');
+            return;
+        }
+
+        showProgress(0);
+        try {
+            const audioBuffer = await loadAudio(file);
+            const processedBuffer = await applyEffects(audioBuffer, parseFloat(slowSpeed.value), parseFloat(reverbTime.value));
+            const processedBlob = await bufferToWave(processedBuffer, file.sampleRate || 44100);
+            const url = URL.createObjectURL(processedBlob);
+            
+            downloadLink.href = url;
+            downloadLink.download = `slowed-reverb_${file.name}`;
+            downloadLink.style.display = 'block';
+            preview.src = url; // Preview processed
+            hideError();
+        } catch (err) {
+            showError('Error processing audio: ' + err.message);
+        }
+        hideProgress();
     });
 
-    function connectChain() {
-      if (!player) return;
-      player.disconnect();
-
-      reverb = new Tone.Reverb({ decay: 3, wet: parseFloat(wet.value) }).toDestination();
-      if (preservePitch.checked) {
-        pitchShift = new Tone.PitchShift({ pitch: -12 * Math.log2(rate.value) });
-        player.connect(pitchShift);
-        pitchShift.connect(reverb);
-      } else {
-        player.connect(reverb);
-      }
-
-      if (lofiTone.checked) {
-        filter = new Tone.Filter(1200, "lowpass").toDestination();
-        reverb.connect(filter);
-      }
-
-      if (crackle.checked) {
-        crackleNoise = new Tone.Noise("brown").start();
-        crackleGain = new Tone.Gain(0.02).toDestination();
-        crackleNoise.connect(crackleGain);
-      }
+    // Helper functions
+    async function loadAudio(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        showProgress(25);
+        return await audioContext.decodeAudioData(arrayBuffer);
     }
 
-    rate.addEventListener("input", () => {
-      rateVal.textContent = rate.value;
-      if (player) player.playbackRate = parseFloat(rate.value);
-    });
-    wet.addEventListener("input", () => {
-      wetVal.textContent = wet.value;
-      if (reverb) reverb.wet.value = parseFloat(wet.value);
-    });
+    async function applyEffects(buffer, speed, reverbTime) {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
 
-    [preservePitch, lofiTone, crackle].forEach(chk => chk.addEventListener("change", connectChain));
+        // Slowed effect (change playback rate)
+        const slowedBuffer = audioContext.createBuffer(buffer.numberOfChannels, buffer.length / speed, buffer.sampleRate * speed);
+        for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+            const inputData = buffer.getChannelData(channel);
+            const outputData = slowedBuffer.getChannelData(channel);
+            for (let i = 0; i < slowedBuffer.length; i++) {
+                outputData[i] = inputData[Math.floor(i * speed)] || 0;
+            }
+        }
+        source.buffer = slowedBuffer;
 
-    playBtn.addEventListener("click", async () => {
-      await Tone.start();
-      if (!player) return alert("Load an audio file first!");
-      connectChain();
-      player.start();
-      statusEl.textContent = "Playing...";
-    });
+        // Reverb effect (simple convolver)
+        const reverb = audioContext.createConvolver();
+        const reverbBuffer = audioContext.createBuffer(1, audioContext.sampleRate * reverbTime, audioContext.sampleRate);
+        const reverbData = reverbBuffer.getChannelData(0);
+        // Simple impulse response for reverb (you can make it more complex)
+        for (let i = 0; i < reverbData.length; i++) {
+            reverbData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / reverbData.length, 2);
+        }
+        reverb.buffer = reverbBuffer;
 
-    pauseBtn.addEventListener("click", () => {
-      if (player) player.stop();
-      statusEl.textContent = "Paused";
-    });
+        const gain = audioContext.createGain();
+        gain.gain.value = 0.7; // Mix to avoid clipping
 
-    stopBtn.addEventListener("click", () => {
-      if (player) player.stop();
-      statusEl.textContent = "Stopped";
-    });
+        source.connect(reverb);
+        reverb.connect(gain);
+        gain.connect(audioContext.destination);
 
-    // Recording
-    startRec.addEventListener("click", () => {
-      if (!player) return alert("Load an audio first!");
-      const dest = Tone.context.createMediaStreamDestination();
-      Tone.Destination.connect(dest);
-      mediaRecorder = new MediaRecorder(dest.stream);
-      chunks = [];
-      mediaRecorder.ondataavailable = e => chunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        const url = URL.createObjectURL(blob);
-        downloadBtn.href = url;
-        downloadBtn.download = "slowed-reverb.webm";
-        downloadBtn.disabled = false;
-      };
-      mediaRecorder.start();
-      startRec.disabled = true;
-      stopRec.disabled = false;
-      statusEl.textContent = "Recording...";
-    });
+        // Render to offline buffer for download
+        const offlineContext = new OfflineAudioContext(buffer.numberOfChannels, slowedBuffer.length, slowedBuffer.sampleRate);
+        const offlineSource = offlineContext.createBufferSource();
+        offlineSource.buffer = slowedBuffer;
+        offlineSource.connect(reverb);
+        reverb.buffer = reverbBuffer; // Reuse
+        reverb.connect(offlineContext.destination);
+        showProgress(50);
+        return await offlineSource.start(0);
+        showProgress(75);
+        return await offlineContext.startRendering();
+    }
 
-    stopRec.addEventListener("click", () => {
-      if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.stop();
-        startRec.disabled = false;
-        stopRec.disabled = true;
-        statusEl.textContent = "Recording stopped";
-      }
-    });
+    function bufferToWave(buffer, sampleRate) {
+        const numChannels = buffer.numberOfChannels;
+        const length = buffer.length * numChannels * 2 + 44;
+        const arrayBuffer = new ArrayBuffer(length);
+        const view = new DataView(arrayBuffer);
+        const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        };
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + buffer.length * numChannels * 2, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * numChannels * 2, true);
+        view.setUint16(32, numChannels * 2, true);
+        view.setUint16(34, 16, true);
+        writeString(36, 'data');
+        view.setUint32(40, buffer.length * numChannels * 2, true);
 
-  </script>
-</body>
-</html>
+        // Write samples
+        let offset = 44;
+        for (let i = 0; i < buffer.length; i++) {
+            for (let channel = 0; channel < numChannels; channel++) {
+                const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+                view.setInt16(offset, sample * 0x7FFF, true);
+                offset += 2;
+            }
+        }
+        showProgress(100);
+        return new Blob([arrayBuffer], { type: 'audio/wav' });
+    }
+
+    function showProgress(percent) {
+        progress.style.display = 'block';
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = 'Processing... ' + percent + '%';
+    }
+
+    function hideProgress() {
+        progress.style.display = 'none';
+    }
+
+    function showError(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.style.display = 'block';
+        processBtn.disabled = true;
+    }
+
+    function hideError() {
+        errorMsg.style.display = 'none';
+    }
+});
