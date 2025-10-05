@@ -1,3 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slowed + Reverb Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-sm-12">
+                <h1 class="text-center mb-4">🎵 Slowed + Reverb Magic Tool</h1>
+                <p class="text-center text-muted">Upload your song, apply slowed + reverb effect, and download the vibe!</p>
+                
+                <div class="card shadow-lg">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="audioFile" class="form-label">Upload Audio File (MP3/WAV, max 100MB)</label>
+                            <input type="file" class="form-control" id="audioFile" accept="audio/*">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="slowSpeed" class="form-label">Slow Speed (0.5x to 1x)</label>
+                            <input type="range" class="form-range" id="slowSpeed" min="0.5" max="1" step="0.1" value="0.8">
+                            <span id="speedValue">0.8x</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="reverbTime" class="form-label">Reverb Time (seconds)</label>
+                            <input type="range" class="form-range" id="reverbTime" min="1" max="5" step="0.5" value="2">
+                            <span id="reverbValue">2s</span>
+                        </div>
+                        
+                        <button class="btn btn-primary w-100 mb-3" id="processBtn" disabled>Apply Effect & Download</button>
+                        
+                        <div id="progress" class="progress mb-3" style="display: none;">
+                            <div class="progress-bar" role="progressbar" style="width: 0%;">Processing...</div>
+                        </div>
+                        
+                        <audio id="preview" controls class="w-100 mb-3" style="display: none;"></audio>
+                        
+                        <a id="downloadLink" class="btn btn-success w-100" style="display: none;">Download Processed Audio</a>
+                        
+                        <div id="errorMsg" class="alert alert-danger" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Cool purple gradient background */
+    min-height: 100vh;
+    font-family: 'Arial', sans-serif;
+    color: #333;
+}
+
+h1 {
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    font-weight: bold;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    backdrop-filter: blur(10px); /* Glassmorphism effect for modern look */
+}
+
+.btn {
+    border-radius: 25px;
+    font-weight: bold;
+}
+
+.progress {
+    height: 25px;
+    border-radius: 15px;
+}
+
+#preview {
+    border-radius: 10px;
+}
+
+/* Mobile Optimization */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.8rem;
+    }
+    .card-body {
+        padding: 1rem;
+    }
+    input[type="range"] {
+        width: 100%;
+    }
+}
+
+/* Desktop Smoothness */
+@media (min-width: 769px) {
+    .card {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+}
 document.addEventListener('DOMContentLoaded', function() {
     const audioFileInput = document.getElementById('audioFile');
     const processBtn = document.getElementById('processBtn');
